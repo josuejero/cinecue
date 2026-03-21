@@ -11,7 +11,8 @@
     "test": "vitest run",
     "worker": "tsx src/worker/index.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "tsx src/db/migrate.ts",
+    "phase1:sync": "tsx src/scripts/phase1-sync.ts"
   },
   "dependencies": {
     "bullmq": "5.71.0",
@@ -21,8 +22,8 @@
     "next": "16.2.0",
     "next-auth": "5.0.0-beta.30",
     "pg": "8.20.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
     "zod": "4.3.6"
   },
   "devDependencies": {

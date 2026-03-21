@@ -1,34 +1,32 @@
-import { Queue, Worker } from "bullmq";
-import IORedis from "ioredis";
+import { Worker } from "bullmq";
 import { getServerEnv } from "../lib/env";
+import { syncZipPhaseOne } from "../lib/phase1/sync";
 
 const env = getServerEnv();
-const queueName = "phase0-bootstrap";
-
-const queueConnection = new IORedis(env.REDIS_URL, {
-  maxRetriesPerRequest: null,
-});
-
-const workerConnection = new IORedis(env.REDIS_URL, {
-  maxRetriesPerRequest: null,
-});
-
-const queue = new Queue(queueName, {
-  connection: queueConnection,
-});
+const queueName = "phase1-provider-sync";
 
 const worker = new Worker(
   queueName,
   async (job) => {
-    console.log(`[worker] processing ${job.name}`, job.data);
+    switch (job.name) {
+      case "sync-zip":
+        return syncZipPhaseOne({
+          zip: job.data.zip,
+          startDate: job.data.startDate,
+          numDays: job.data.numDays,
+          radiusMiles: job.data.radiusMiles,
+          country: job.data.country,
+        });
 
-    return {
-      ok: true,
-      processedAt: new Date().toISOString(),
-    };
+      default:
+        throw new Error(`Unknown job "${job.name}"`);
+    }
   },
   {
-    connection: workerConnection,
+    connection: {
+      url: env.REDIS_URL,
+      maxRetriesPerRequest: null,
+    },
   },
 );
 
@@ -41,19 +39,11 @@ worker.on("failed", (job, error) => {
 });
 
 async function main() {
-  await queue.add("bootstrap-check", {
-    phase: 0,
-    requestedAt: new Date().toISOString(),
-  });
-
   console.log(`[worker] listening on queue "${queueName}"`);
 }
 
 async function shutdown() {
   await worker.close();
-  await queue.close();
-  await queueConnection.quit();
-  await workerConnection.quit();
   process.exit(0);
 }
 

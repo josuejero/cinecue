@@ -1,6 +1,6 @@
+import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
-import dotenv from "dotenv";
 import { z } from "zod";
 
 const serverEnvSchema = z.object({
@@ -10,8 +10,15 @@ const serverEnvSchema = z.object({
   AUTH_SECRET: z.string().min(32),
   AUTH_GITHUB_ID: z.string().optional(),
   AUTH_GITHUB_SECRET: z.string().optional(),
-  GRACENOTE_API_KEY: z.string().optional(),
-  TMDB_API_KEY: z.string().optional(),
+
+  GRACENOTE_BASE_URL: z.string().url().default("http://data.tmsapi.com/v1.1"),
+  GRACENOTE_API_KEY: z.string().min(1).optional(),
+
+  TMDB_BASE_URL: z.string().url().default("https://api.themoviedb.org/3"),
+  TMDB_READ_ACCESS_TOKEN: z.string().min(1).optional(),
+  TMDB_API_KEY: z.string().min(1).optional(),
+
+  PHASE1_TEST_ZIP: z.string().optional(),
 });
 
 export function parseServerEnv(input: Record<string, string | undefined>) {
@@ -27,18 +34,14 @@ function ensureEnvLoaded() {
 
   const projectRoot = process.cwd();
   const envPath = path.resolve(projectRoot, ".env");
-  const examplePath = path.resolve(projectRoot, ".env.example");
-  let configPath = envPath;
 
-  if (!fs.existsSync(envPath) && fs.existsSync(examplePath)) {
-    configPath = examplePath;
-    console.warn(".env missing; using .env.example as a fallback.");
+  if (!fs.existsSync(envPath)) {
+    throw new Error(
+      ".env missing; copy .env.example to .env and replace the placeholder values with real credentials (e.g., GRACENOTE_API_KEY) before running Phase 1 syncs.",
+    );
   }
 
-  if (fs.existsSync(configPath)) {
-    dotenv.config({ path: configPath });
-  }
-
+  dotenv.config({ path: envPath });
   envLoaded = true;
 }
 
