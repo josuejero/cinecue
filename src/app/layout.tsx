@@ -38,7 +38,11 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-slate-50 text-slate-900">
+      {/* Browser extensions like Grammarly mutate <body> attributes after hydration, so skip the diff */}
+      <body
+        className="min-h-full bg-slate-50 text-slate-900"
+        suppressHydrationWarning={true}
+      >
         <PwaProvider />
         {children}
       </body>

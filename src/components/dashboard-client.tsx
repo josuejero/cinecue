@@ -164,10 +164,19 @@ export function DashboardClient() {
     return nextLocation.locationId;
   }, []);
 
-  const loadDashboardBundle = useCallback(async (locationId: string) => {
+  const loadDashboardBundle = useCallback(async (
+    locationId: string,
+    options?: { refreshDashboard?: boolean },
+  ) => {
+    const dashboardQuery = new URLSearchParams({ locationId });
+
+    if (options?.refreshDashboard) {
+      dashboardQuery.set("refresh", "true");
+    }
+
     const [dashboardData, changeData] = await Promise.all([
       readJson<DashboardResponse>(
-        `/api/dashboard?locationId=${encodeURIComponent(locationId)}`,
+        `/api/dashboard?${dashboardQuery.toString()}`,
       ),
       readJson<ChangesResponse>(
         `/api/availability/changes?locationId=${encodeURIComponent(locationId)}&limit=12`,
@@ -199,9 +208,13 @@ export function DashboardClient() {
   }, []);
 
   const refreshAll = useCallback(
-    async (locationId: string, query?: string) => {
+    async (
+      locationId: string,
+      query?: string,
+      options?: { refreshDashboard?: boolean },
+    ) => {
       const nextQuery = query ?? searchQueryRef.current;
-      await loadDashboardBundle(locationId);
+      await loadDashboardBundle(locationId, options);
 
       if (nextQuery.trim().length >= 2) {
         await runSearch(nextQuery, locationId);
@@ -285,10 +298,12 @@ export function DashboardClient() {
       setLiveState("connected");
     };
 
-    const onRefresh = () => {
+  const onRefresh = () => {
       setLiveState("connected");
       setLastLiveUpdate(new Date().toISOString());
-      void refreshAll(selectedLocationId).catch((nextError) => {
+      void refreshAll(selectedLocationId, undefined, {
+        refreshDashboard: true,
+      }).catch((nextError) => {
         setError(
           nextError instanceof Error ? nextError.message : "Failed to refresh dashboard.",
         );
@@ -729,6 +744,12 @@ export function DashboardClient() {
             Helpful paths
           </p>
           <div className="mt-4 flex flex-col gap-3 text-sm">
+            <Link
+              className="font-semibold text-slate-900 hover:underline"
+              href="/settings/locations"
+            >
+              Location settings
+            </Link>
             <Link
               className="font-semibold text-slate-900 hover:underline"
               href="/settings/notifications"

@@ -16,6 +16,7 @@ import { getServerEnv } from "@/lib/env";
 import {
   applyNotificationPreferenceDefaults,
   deactivateWebPushSubscription,
+  ensureNotificationPreferencesSchema,
 } from "@/lib/phase5/preferences";
 import {
   PUSH_EVENT_KINDS,
@@ -96,6 +97,8 @@ export async function processPendingPushNotifications(input?: {
   }
 
   configureWebPush();
+
+  await ensureNotificationPreferencesSchema();
 
   const db = getDb();
   const env = getServerEnv();

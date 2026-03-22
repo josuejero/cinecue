@@ -1,8 +1,9 @@
+import { NextResponse } from "next/server";
 import { getOrCreateAppUser } from "@/lib/phase2/auth";
 import { BadRequestError, jsonFromError } from "@/lib/phase2/errors";
 import { resolveUserLocation } from "@/lib/phase2/locations";
-import { searchMoviesForFollowFlow } from "@/lib/phase2/queries";
-import { NextResponse } from "next/server";
+import { trackProductEvent } from "@/lib/phase6/analytics";
+import { searchMoviesForFollowFlowPhase6 } from "@/lib/phase6/search";
 
 export async function GET(request: Request) {
   try {
@@ -17,12 +18,21 @@ export async function GET(request: Request) {
 
     const user = await getOrCreateAppUser();
     const location = await resolveUserLocation(user.id, locationId);
-
-    const results = await searchMoviesForFollowFlow({
+    const results = await searchMoviesForFollowFlowPhase6({
       userId: user.id,
       locationId: location.locationId,
       query,
       limit,
+    });
+
+    await trackProductEvent({
+      userId: user.id,
+      locationId: location.locationId,
+      eventName: "search",
+      properties: {
+        queryLength: query.length,
+        resultCount: results.length,
+      },
     });
 
     return NextResponse.json({

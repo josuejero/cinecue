@@ -1,9 +1,10 @@
+import { NextResponse } from "next/server";
 import { getOrCreateAppUser } from "@/lib/phase2/auth";
 import { jsonFromError } from "@/lib/phase2/errors";
 import { resolveUserLocation } from "@/lib/phase2/locations";
 import { loadMovieDetail } from "@/lib/phase2/queries";
 import { refreshMovieLocalStatusForLocation } from "@/lib/phase2/read-model";
-import { NextResponse } from "next/server";
+import { listFavoriteTheatreIds, markLocationUsed } from "@/lib/phase6/locations";
 
 export async function GET(
   request: Request,
@@ -11,20 +12,34 @@ export async function GET(
 ) {
   try {
     const { movieId } = await params;
-    const locationId = new URL(request.url).searchParams.get("locationId");
+    const url = new URL(request.url);
+    const locationId = url.searchParams.get("locationId");
+    const refresh = url.searchParams.get("refresh") === "true";
     const user = await getOrCreateAppUser();
     const location = await resolveUserLocation(user.id, locationId);
 
-    await refreshMovieLocalStatusForLocation(location.locationId, movieId);
+    await markLocationUsed(user.id, location.locationId);
+
+    if (refresh) {
+      await refreshMovieLocalStatusForLocation(location.locationId, movieId);
+    }
 
     const detail = await loadMovieDetail({
       userId: user.id,
       locationId: location.locationId,
       movieId,
     });
+    const favoriteTheatreIds = await listFavoriteTheatreIds(user.id, location.locationId);
+    const favoriteSet = new Set(favoriteTheatreIds);
+
+    detail.movie.nearbyTheatres = [...detail.movie.nearbyTheatres].sort((left, right) => {
+      return Number(favoriteSet.has(right.theatreId)) - Number(favoriteSet.has(left.theatreId));
+    });
 
     return NextResponse.json({
       location,
+      favoriteTheatreIds,
+      calendarExportUrl: `/api/movies/${movieId}/calendar?locationId=${encodeURIComponent(location.locationId)}`,
       ...detail,
     });
   } catch (error) {

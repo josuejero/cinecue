@@ -1,25 +1,64 @@
+import { NextResponse } from "next/server";
 import { getOrCreateAppUser } from "@/lib/phase2/auth";
 import { jsonFromError } from "@/lib/phase2/errors";
 import { resolveUserLocation } from "@/lib/phase2/locations";
 import { getFollowedMovieIds, loadDashboard } from "@/lib/phase2/queries";
 import { refreshSelectedMovieLocalStatuses } from "@/lib/phase2/read-model";
-import { NextResponse } from "next/server";
+import { trackProductEvent } from "@/lib/phase6/analytics";
+import {
+  readDashboardCache,
+  writeDashboardCache,
+} from "@/lib/phase6/dashboard-cache";
+import { markLocationUsed } from "@/lib/phase6/locations";
 
 export async function GET(request: Request) {
   try {
-    const locationId = new URL(request.url).searchParams.get("locationId");
+    const url = new URL(request.url);
+    const locationId = url.searchParams.get("locationId");
+    const refresh = url.searchParams.get("refresh") === "true";
     const user = await getOrCreateAppUser();
     const location = await resolveUserLocation(user.id, locationId);
 
-    const followedMovieIds = await getFollowedMovieIds(user.id, location.locationId);
-    await refreshSelectedMovieLocalStatuses(location.locationId, followedMovieIds);
+    await markLocationUsed(user.id, location.locationId);
+
+    const cacheScope = `location:${location.locationId}`;
+    const cached = refresh
+      ? null
+      : await readDashboardCache<Awaited<ReturnType<typeof loadDashboard>> & {
+          location: typeof location;
+        }>(user.id, cacheScope);
+
+    if (cached) {
+      await trackProductEvent({
+        userId: user.id,
+        locationId: location.locationId,
+        eventName: "dashboard_view",
+        properties: { refresh: false, cacheHit: true },
+      });
+
+      return NextResponse.json(cached);
+    }
+
+    if (refresh) {
+      const followedMovieIds = await getFollowedMovieIds(user.id, location.locationId);
+      await refreshSelectedMovieLocalStatuses(location.locationId, followedMovieIds);
+    }
 
     const dashboard = await loadDashboard(user.id, location.locationId);
-
-    return NextResponse.json({
+    const payload = {
       location,
       ...dashboard,
+    };
+
+    await writeDashboardCache(user.id, cacheScope, payload);
+    await trackProductEvent({
+      userId: user.id,
+      locationId: location.locationId,
+      eventName: "dashboard_view",
+      properties: { refresh, cacheHit: false },
     });
+
+    return NextResponse.json(payload);
   } catch (error) {
     return jsonFromError(error);
   }

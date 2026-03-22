@@ -1,10 +1,12 @@
+import { and, eq } from "drizzle-orm";
+import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { userMovieFollows } from "@/db/schema";
 import { getOrCreateAppUser } from "@/lib/phase2/auth";
 import { jsonFromError } from "@/lib/phase2/errors";
 import { resolveUserLocation } from "@/lib/phase2/locations";
-import { and, eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
+import { trackProductEvent } from "@/lib/phase6/analytics";
+import { invalidateDashboardCacheForUser } from "@/lib/phase6/dashboard-cache";
 
 export async function DELETE(
   request: Request,
@@ -15,7 +17,6 @@ export async function DELETE(
     const locationId = new URL(request.url).searchParams.get("locationId");
     const user = await getOrCreateAppUser();
     const location = await resolveUserLocation(user.id, locationId);
-
     const db = getDb();
 
     await db
@@ -27,6 +28,15 @@ export async function DELETE(
           eq(userMovieFollows.movieId, movieId),
         ),
       );
+
+    await invalidateDashboardCacheForUser(user.id);
+    await trackProductEvent({
+      userId: user.id,
+      locationId: location.locationId,
+      movieId,
+      eventName: "unfollow",
+      properties: {},
+    });
 
     return NextResponse.json({
       removed: true,

@@ -33,6 +33,9 @@ describe("parseServerEnv", () => {
     expect(env.PHASE5_PUSH_BATCH_SIZE).toBe(100);
     expect(env.PHASE5_SSE_HEARTBEAT_MS).toBe(15_000);
     expect(env.PHASE5_SSE_POLL_MS).toBe(15_000);
+    expect(env.PHASE6_DASHBOARD_CACHE_TTL_SECONDS).toBe(30);
+    expect(env.PHASE6_ANALYTICS_WINDOW_DAYS).toBe(30);
+    expect(env.PHASE6_CALENDAR_DEFAULT_DURATION_MINUTES).toBe(150);
   });
 
   it("parses optional SMTP env vars when provided", () => {

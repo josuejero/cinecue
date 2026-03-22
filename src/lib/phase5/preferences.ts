@@ -11,6 +11,91 @@ function createId() {
   return crypto.randomUUID();
 }
 
+let ensureNotificationPreferencesSchemaPromise: Promise<void> | null = null;
+
+export async function ensureNotificationPreferencesSchema() {
+  if (!ensureNotificationPreferencesSchemaPromise) {
+    ensureNotificationPreferencesSchemaPromise = (async () => {
+      const db = getDb();
+      const statements = [
+        sql`
+          ALTER TABLE "user_notification_preferences"
+          ADD COLUMN IF NOT EXISTS "push_enabled" boolean DEFAULT false NOT NULL
+        `,
+        sql`
+          ALTER TABLE "user_notification_preferences"
+          ADD COLUMN IF NOT EXISTS "theatre_count_increased_enabled" boolean DEFAULT true NOT NULL
+        `,
+        sql`
+          ALTER TABLE "user_notification_preferences"
+          ADD COLUMN IF NOT EXISTS "final_showing_soon_enabled" boolean DEFAULT true NOT NULL
+        `,
+        sql`
+          CREATE TABLE IF NOT EXISTS "web_push_subscriptions" (
+            "id" text PRIMARY KEY NOT NULL,
+            "user_id" text NOT NULL,
+            "endpoint" text NOT NULL,
+            "expiration_time" bigint,
+            "p256dh" text NOT NULL,
+            "auth" text NOT NULL,
+            "user_agent" text,
+            "is_active" boolean DEFAULT true NOT NULL,
+            "last_seen_at" timestamp with time zone DEFAULT now() NOT NULL,
+            "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+            "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+          )
+        `,
+        sql`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1
+              FROM pg_constraint
+              WHERE conname = 'web_push_subscriptions_user_id_users_id_fk'
+            ) THEN
+              ALTER TABLE "web_push_subscriptions"
+                ADD CONSTRAINT "web_push_subscriptions_user_id_users_id_fk"
+                FOREIGN KEY ("user_id") REFERENCES "public"."users"("id")
+                ON DELETE cascade
+                ON UPDATE no action;
+            END IF;
+          END $$;
+        `,
+        sql`
+          CREATE UNIQUE INDEX IF NOT EXISTS "web_push_subscriptions_endpoint_unique"
+            ON "web_push_subscriptions" USING btree ("endpoint");
+        `,
+        sql`
+          CREATE INDEX IF NOT EXISTS "web_push_subscriptions_user_active_idx"
+            ON "web_push_subscriptions" USING btree ("user_id", "is_active");
+        `,
+      ];
+
+      const maxAttempts = 2;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          for (const statement of statements) {
+            await db.execute(statement);
+          }
+          return;
+        } catch (error) {
+          if (attempt === maxAttempts) {
+            throw error;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+    })();
+  }
+
+  try {
+    await ensureNotificationPreferencesSchemaPromise;
+  } catch (error) {
+    ensureNotificationPreferencesSchemaPromise = null;
+    throw error;
+  }
+}
+
 export type NotificationPreferenceShape = {
   emailEnabled: boolean;
   pushEnabled: boolean;
@@ -70,6 +155,7 @@ export function isEmailTransportConfigured() {
 }
 
 export async function getOrCreateNotificationPreferences(userId: string) {
+  await ensureNotificationPreferencesSchema();
   const db = getDb();
   const defaults = defaultNotificationPreferences();
 
@@ -118,6 +204,7 @@ export async function updateNotificationPreferences(
   userId: string,
   input: Partial<NotificationPreferenceShape>,
 ) {
+  await ensureNotificationPreferencesSchema();
   const db = getDb();
   const defaults = defaultNotificationPreferences();
 
@@ -185,6 +272,7 @@ export async function upsertWebPushSubscription(input: {
   };
   userAgent?: string | null;
 }) {
+  await ensureNotificationPreferencesSchema();
   const db = getDb();
 
   await db
@@ -218,6 +306,7 @@ export async function upsertWebPushSubscription(input: {
 }
 
 export async function deactivateWebPushSubscription(userId: string, endpoint: string) {
+  await ensureNotificationPreferencesSchema();
   const db = getDb();
 
   await db

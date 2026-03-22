@@ -1,3 +1,6 @@
+import crypto from "node:crypto";
+import { eq } from "drizzle-orm";
+import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { movies, userMovieFollows } from "@/db/schema";
 import { getOrCreateAppUser } from "@/lib/phase2/auth";
@@ -5,9 +8,8 @@ import { BadRequestError, jsonFromError, NotFoundError } from "@/lib/phase2/erro
 import { resolveUserLocation } from "@/lib/phase2/locations";
 import { loadMovieDetail } from "@/lib/phase2/queries";
 import { refreshMovieLocalStatusForLocation } from "@/lib/phase2/read-model";
-import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
-import crypto from "node:crypto";
+import { trackProductEvent } from "@/lib/phase6/analytics";
+import { invalidateDashboardCacheForUser } from "@/lib/phase6/dashboard-cache";
 
 function createId() {
   return crypto.randomUUID();
@@ -64,6 +66,15 @@ export async function POST(request: Request) {
       userId: user.id,
       locationId: location.locationId,
       movieId: body.movieId,
+    });
+
+    await invalidateDashboardCacheForUser(user.id);
+    await trackProductEvent({
+      userId: user.id,
+      locationId: location.locationId,
+      movieId: body.movieId,
+      eventName: "follow",
+      properties: {},
     });
 
     return NextResponse.json(

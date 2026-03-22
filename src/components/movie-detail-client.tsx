@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { CalendarExportButton } from "@/components/calendar-export-button";
+import { FavoriteTheatreButton } from "@/components/favorite-theatre-button";
 import { readJson } from "@/lib/phase3/client";
 import { formatDate, formatDateTime, humanizeStatus } from "@/lib/phase3/format";
 
@@ -17,6 +19,8 @@ type SavedLocation = {
 
 type MovieDetailResponse = {
   location: SavedLocation;
+  favoriteTheatreIds: string[];
+  calendarExportUrl: string | null;
   movie: {
     movieId: string;
     title: string;
@@ -282,6 +286,10 @@ export function MovieDetailClient(input: {
                 >
                   {busy ? "Working..." : detail.movie.isFollowed ? "Unfollow" : "Follow"}
                 </button>
+
+                {detail.calendarExportUrl ? (
+                  <CalendarExportButton href={detail.calendarExportUrl} />
+                ) : null}
               </div>
             </div>
 
@@ -376,17 +384,27 @@ export function MovieDetailClient(input: {
           {detail.movie.nearbyTheatres.length ? (
             detail.movie.nearbyTheatres.map((theatre) => (
               <div key={theatre.theatreId} className="rounded-2xl border border-slate-200 p-4">
-                <p className="font-semibold text-slate-900">{theatre.name}</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {[theatre.address1, theatre.city, theatre.state, theatre.postalCode]
-                    .filter(Boolean)
-                    .join(", ")}
-                </p>
-                <p className="mt-2 text-sm text-slate-500">
-                  Next showing: {formatDateTime(theatre.nextShowingAt)} ·{" "}
-                  {theatre.upcomingShowtimeCount} upcoming showtime
-                  {theatre.upcomingShowtimeCount === 1 ? "" : "s"}
-                </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-semibold text-slate-900">{theatre.name}</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {[theatre.address1, theatre.city, theatre.state, theatre.postalCode]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Next showing: {formatDateTime(theatre.nextShowingAt)} ·{" "}
+                      {theatre.upcomingShowtimeCount} upcoming showtime
+                      {theatre.upcomingShowtimeCount === 1 ? "" : "s"}
+                    </p>
+                  </div>
+
+                  <FavoriteTheatreButton
+                    initialFavorite={detail.favoriteTheatreIds.includes(theatre.theatreId)}
+                    locationId={detail.location.locationId}
+                    theatreId={theatre.theatreId}
+                  />
+                </div>
               </div>
             ))
           ) : (

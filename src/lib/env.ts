@@ -52,6 +52,10 @@ const serverEnvSchema = z.object({
   PHASE5_PUSH_BATCH_SIZE: z.coerce.number().int().positive().default(100),
   PHASE5_SSE_HEARTBEAT_MS: z.coerce.number().int().positive().default(15_000),
   PHASE5_SSE_POLL_MS: z.coerce.number().int().positive().default(15_000),
+
+  PHASE6_DASHBOARD_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(30),
+  PHASE6_ANALYTICS_WINDOW_DAYS: z.coerce.number().int().positive().default(30),
+  PHASE6_CALENDAR_DEFAULT_DURATION_MINUTES: z.coerce.number().int().positive().default(150),
 });
 
 export function parseServerEnv(input: Record<string, string | undefined>) {
