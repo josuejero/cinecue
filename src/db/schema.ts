@@ -51,6 +51,22 @@ export const movieAvailabilityStatusEnum = pgEnum("movie_availability_status", [
   "stopped_playing",
 ]);
 
+export const availabilityEventKindEnum = pgEnum("availability_event_kind", [
+  "status_changed",
+  "newly_scheduled",
+  "now_playing",
+  "advance_tickets",
+  "stopped_playing",
+  "theatre_count_increased",
+  "final_showing_soon",
+]);
+
+export const workerJobRunStatusEnum = pgEnum("worker_job_run_status", [
+  "running",
+  "succeeded",
+  "failed",
+]);
+
 export const notificationChannelEnum = pgEnum("notification_channel", ["email"]);
 
 export const notificationDeliveryStatusEnum = pgEnum("notification_delivery_status", [
@@ -246,6 +262,10 @@ export const providerSyncRuns = pgTable(
       table.provider,
       table.jobType,
     ),
+    locationStartedIdx: index("provider_sync_runs_location_started_idx").on(
+      table.locationKey,
+      table.startedAt,
+    ),
   }),
 );
 
@@ -375,6 +395,10 @@ export const showtimes = pgTable(
       table.locationId,
       table.businessDate,
     ),
+    locationStartAtIdx: index("showtimes_location_start_at_idx").on(
+      table.locationId,
+      table.startAtLocal,
+    ),
   }),
 );
 
@@ -420,6 +444,10 @@ export const availabilityChangeEvents = pgTable(
   "availability_change_events",
   {
     id: text("id").primaryKey(),
+    eventKey: text("event_key").notNull(),
+    eventKind: availabilityEventKindEnum("event_kind")
+      .notNull()
+      .default("status_changed"),
     movieId: text("movie_id")
       .notNull()
       .references(() => movies.id, { onDelete: "cascade" }),
@@ -437,8 +465,17 @@ export const availabilityChangeEvents = pgTable(
       withTimezone: false,
     }),
     changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
+    metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
+    sourceSyncRunId: text("source_sync_run_id").references(() => providerSyncRuns.id, {
+      onDelete: "set null",
+    }),
+    suppressedAt: timestamp("suppressed_at", { withTimezone: true }),
+    suppressionReason: text("suppression_reason"),
   },
   (table) => ({
+    eventKeyUnique: uniqueIndex("availability_change_events_event_key_unique").on(
+      table.eventKey,
+    ),
     locationChangedAtIdx: index("availability_change_events_location_changed_at_idx").on(
       table.locationId,
       table.changedAt,
@@ -446,6 +483,40 @@ export const availabilityChangeEvents = pgTable(
     movieChangedAtIdx: index("availability_change_events_movie_changed_at_idx").on(
       table.movieId,
       table.changedAt,
+    ),
+    kindChangedAtIdx: index("availability_change_events_kind_changed_at_idx").on(
+      table.eventKind,
+      table.changedAt,
+    ),
+  }),
+);
+
+export const locationSyncStates = pgTable(
+  "location_sync_state",
+  {
+    locationId: text("location_id")
+      .primaryKey()
+      .references(() => locations.id, { onDelete: "cascade" }),
+    lastShowingsSyncRunId: text("last_showings_sync_run_id").references(
+      () => providerSyncRuns.id,
+      { onDelete: "set null" },
+    ),
+    lastShowingsSyncAt: timestamp("last_showings_sync_at", { withTimezone: true }),
+    lastReadModelRefreshAt: timestamp("last_read_model_refresh_at", {
+      withTimezone: true,
+    }),
+    lastNotificationEnqueueAt: timestamp("last_notification_enqueue_at", {
+      withTimezone: true,
+    }),
+    lastSuccessfulSyncAt: timestamp("last_successful_sync_at", {
+      withTimezone: true,
+    }),
+    staleAfterSeconds: integer("stale_after_seconds").notNull().default(5400),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    lastSuccessfulSyncIdx: index("location_sync_state_last_successful_sync_idx").on(
+      table.lastSuccessfulSyncAt,
     ),
   }),
 );
@@ -506,8 +577,52 @@ export const notificationDeliveries = pgTable(
       table.userId,
       table.status,
     ),
+    statusCreatedIdx: index("notification_deliveries_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
     eventIdx: index("notification_deliveries_event_idx").on(
       table.availabilityChangeEventId,
+    ),
+  }),
+);
+
+export const workerJobRuns = pgTable(
+  "worker_job_runs",
+  {
+    id: text("id").primaryKey(),
+    queueName: text("queue_name").notNull(),
+    jobName: text("job_name").notNull(),
+    jobId: text("job_id"),
+    deduplicationKey: text("deduplication_key"),
+    locationId: text("location_id").references(() => locations.id, {
+      onDelete: "set null",
+    }),
+    providerSyncRunId: text("provider_sync_run_id").references(() => providerSyncRuns.id, {
+      onDelete: "set null",
+    }),
+    payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+    resultSummary: jsonb("result_summary").notNull().default(sql`'{}'::jsonb`),
+    status: workerJobRunStatusEnum("status").notNull(),
+    attempt: integer("attempt").notNull().default(1),
+    errorMessage: text("error_message"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    queueStatusStartedIdx: index("worker_job_runs_queue_status_started_idx").on(
+      table.queueName,
+      table.status,
+      table.startedAt,
+    ),
+    locationStartedIdx: index("worker_job_runs_location_started_idx").on(
+      table.locationId,
+      table.startedAt,
+    ),
+    jobNameStartedIdx: index("worker_job_runs_job_name_started_idx").on(
+      table.jobName,
+      table.startedAt,
     ),
   }),
 );

@@ -417,6 +417,7 @@ export async function listAvailabilityChanges(input: {
   const rows = await db
     .select({
       id: availabilityChangeEvents.id,
+      eventKind: availabilityChangeEvents.eventKind,
       changedAt: availabilityChangeEvents.changedAt,
       previousStatus: availabilityChangeEvents.previousStatus,
       newStatus: availabilityChangeEvents.newStatus,
@@ -438,7 +439,18 @@ export async function listAvailabilityChanges(input: {
         eq(userMovieFollows.userId, input.userId),
       ),
     )
-    .where(eq(availabilityChangeEvents.locationId, input.locationId))
+    .where(
+      and(
+        eq(availabilityChangeEvents.locationId, input.locationId),
+        inArray(availabilityChangeEvents.eventKind, [
+          "status_changed",
+          "newly_scheduled",
+          "now_playing",
+          "advance_tickets",
+          "stopped_playing",
+        ]),
+      ),
+    )
     .orderBy(desc(availabilityChangeEvents.changedAt))
     .limit(limit);
 

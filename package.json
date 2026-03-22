@@ -14,7 +14,11 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "phase1:sync": "tsx src/scripts/phase1-sync.ts",
     "phase2:rebuild": "tsx src/scripts/phase2-rebuild.ts",
-    "phase3:notify": "tsx src/scripts/phase3-notify.ts"
+    "phase3:notify": "tsx src/scripts/phase3-notify.ts",
+    "phase4:schedulers": "tsx src/scripts/phase4-schedulers.ts",
+    "phase4:sync-active": "tsx src/scripts/phase4-sync-active.ts",
+    "phase4:replay-location": "tsx src/scripts/phase4-replay-location.ts",
+    "phase4:replay-movie": "tsx src/scripts/phase4-replay-movie.ts"
   },
   "dependencies": {
     "bullmq": "5.71.0",

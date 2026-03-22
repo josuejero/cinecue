@@ -28,6 +28,21 @@ const serverEnvSchema = z.object({
   TMDB_API_KEY: z.string().min(1).optional(),
 
   PHASE1_TEST_ZIP: z.string().optional(),
+
+  PHASE4_ENABLE_SCHEDULERS: z.enum(["true", "false"]).default("true"),
+  PHASE4_SYNC_INTERVAL_MINUTES: z.coerce.number().int().positive().default(15),
+  PHASE4_SYNC_NUM_DAYS: z.coerce.number().int().positive().default(14),
+  PHASE4_ACTIVE_LOCATION_LIMIT: z.coerce.number().int().positive().default(200),
+  PHASE4_LOCATION_SYNC_CONCURRENCY: z.coerce.number().int().positive().default(6),
+  PHASE4_NOTIFICATION_INTERVAL_MINUTES: z.coerce.number().int().positive().default(10),
+  PHASE4_NOTIFICATION_BATCH_SIZE: z.coerce.number().int().positive().default(200),
+  PHASE4_FUTURE_RELEASES_INTERVAL_MINUTES: z.coerce.number().int().positive().default(360),
+  PHASE4_FUTURE_RELEASES_NUM_DAYS: z.coerce.number().int().positive().default(60),
+  PHASE4_SHOWTIME_RETENTION_DAYS: z.coerce.number().int().positive().default(21),
+  PHASE4_JOB_RUN_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+  PHASE4_STALE_AFTER_MINUTES: z.coerce.number().int().positive().default(90),
+  PHASE4_FINAL_SHOWING_SOON_HOURS: z.coerce.number().int().positive().default(24),
+  PHASE4_SYNC_COUNTRY: z.enum(["USA", "CAN"]).default("USA"),
 });
 
 export function parseServerEnv(input: Record<string, string | undefined>) {

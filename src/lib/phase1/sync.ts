@@ -36,7 +36,7 @@ import type {
   SourceProvider
 } from "@/lib/providers/types";
 import { refreshLocationReadModelByNormalizedKey } from "@/lib/phase2/read-model";
-import { and, eq, gte, like, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, like, lte } from "drizzle-orm";
 import crypto from "node:crypto";
 
 type ResolveMovieOutcome =
@@ -870,6 +870,76 @@ async function upsertShowtime(
     });
 }
 
+function buildInternalShowtimeKey(input: {
+  provider: SourceProvider;
+  theatreId: string;
+  movieId: string;
+  startAtLocal: Date | string;
+}) {
+  const startAtLocal =
+    input.startAtLocal instanceof Date
+      ? input.startAtLocal.toISOString()
+      : new Date(input.startAtLocal).toISOString();
+
+  return [input.provider, input.theatreId, input.movieId, startAtLocal].join("|");
+}
+
+async function deleteStaleShowtimesForWindow(input: {
+  locationId: string;
+  startDate: string;
+  numDays: number;
+  seenKeys: Set<string>;
+}) {
+  const db = getDb();
+
+  const start = new Date(`${input.startDate}T00:00:00Z`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + Math.max(1, input.numDays) - 1);
+  const endDate = end.toISOString().slice(0, 10);
+
+  const existing = await db
+    .select({
+      id: showtimes.id,
+      provider: showtimes.provider,
+      theatreId: showtimes.theatreId,
+      movieId: showtimes.movieId,
+      startAtLocal: showtimes.startAtLocal,
+    })
+    .from(showtimes)
+    .where(
+      and(
+        eq(showtimes.locationId, input.locationId),
+        gte(showtimes.businessDate, input.startDate),
+        lte(showtimes.businessDate, endDate),
+      ),
+    );
+
+  const staleIds = existing
+    .filter(
+      (row) =>
+        !input.seenKeys.has(
+          buildInternalShowtimeKey({
+            provider: row.provider,
+            theatreId: row.theatreId,
+            movieId: row.movieId,
+            startAtLocal: row.startAtLocal,
+          }),
+        ),
+    )
+    .map((row) => row.id);
+
+  if (!staleIds.length) {
+    return 0;
+  }
+
+  const deleted = await db
+    .delete(showtimes)
+    .where(inArray(showtimes.id, staleIds))
+    .returning({ id: showtimes.id });
+
+  return deleted.length;
+}
+
 export async function syncTheatresByZip(input: {
   zip: string;
   radiusMiles?: number;
@@ -932,7 +1002,7 @@ export async function syncShowingsByZip(input: {
   startDate: string;
   numDays?: number;
   radiusMiles?: number;
-}): Promise<SyncSummary & { showtimes: number }> {
+}): Promise<SyncSummary & { showtimes: number; removed: number }> {
   const normalizedZip = normalizePostalCode(input.zip);
   if (!normalizedZip) {
     throw new Error("ZIP code is required.");
@@ -970,6 +1040,7 @@ export async function syncShowingsByZip(input: {
     });
 
     const resolutionCache = new Map<string, ResolveMovieOutcome>();
+    const seenKeys = new Set<string>();
     let created = 0;
     let updated = 0;
     let conflicts = 0;
@@ -992,6 +1063,15 @@ export async function syncShowingsByZip(input: {
       const theatreId = await upsertTheatre(showing.theatre);
       await upsertShowtime(showing, resolution.movieId, theatreId, location.id);
 
+      seenKeys.add(
+        buildInternalShowtimeKey({
+          provider: showing.provider,
+          theatreId,
+          movieId: resolution.movieId,
+          startAtLocal: showing.startAtLocal,
+        }),
+      );
+
       if (resolution.created) {
         created += 1;
       } else {
@@ -1000,6 +1080,13 @@ export async function syncShowingsByZip(input: {
 
       showtimeCount += 1;
     }
+
+    const removed = await deleteStaleShowtimesForWindow({
+      locationId: location.id,
+      startDate: input.startDate,
+      numDays: input.numDays ?? 7,
+      seenKeys,
+    });
 
     await completeSyncRun(syncRunId);
 
@@ -1010,6 +1097,7 @@ export async function syncShowingsByZip(input: {
       updated,
       conflicts,
       showtimes: showtimeCount,
+      removed,
     };
   } catch (error) {
     await failSyncRun(syncRunId, error);

@@ -2,7 +2,6 @@ import IORedis from "ioredis";
 import { getServerEnv } from "./env";
 
 declare global {
-   
   var __cinecueRedis: IORedis | undefined;
 }
 
@@ -17,4 +16,13 @@ export function getRedis() {
   }
 
   return global.__cinecueRedis;
+}
+
+export function getBullmqConnection() {
+  const env = getServerEnv();
+
+  return {
+    url: env.REDIS_URL,
+    maxRetriesPerRequest: null as null,
+  };
 }

@@ -1,3 +1,6 @@
+import crypto from "node:crypto";
+import { and, asc, eq, gte, isNull } from "drizzle-orm";
+import nodemailer from "nodemailer";
 import { getDb } from "@/db/client";
 import {
   appUsers,
@@ -10,9 +13,6 @@ import {
 } from "@/db/schema";
 import { getServerEnv } from "@/lib/env";
 import type { MovieAvailabilityStatus } from "@/lib/phase2/read-model";
-import { and, asc, eq, gte, isNull } from "drizzle-orm";
-import crypto from "node:crypto";
-import nodemailer from "nodemailer";
 
 export type NotificationKind =
   | "newly_scheduled"
@@ -96,6 +96,19 @@ export function classifyAvailabilityChange(
   }
 
   return null;
+}
+
+function notificationKindFromEventKind(eventKind: string | null | undefined) {
+  switch (eventKind) {
+    case "newly_scheduled":
+      return "newly_scheduled";
+    case "now_playing":
+      return "now_playing";
+    case "advance_tickets":
+      return "advance_tickets";
+    default:
+      return null;
+  }
 }
 
 function isKindEnabled(kind: NotificationKind, prefs: PreferenceShape) {
@@ -337,6 +350,7 @@ export async function processPendingEmailNotifications(input?: {
   const rows = await db
     .select({
       eventId: availabilityChangeEvents.id,
+      eventKind: availabilityChangeEvents.eventKind,
       changedAt: availabilityChangeEvents.changedAt,
       previousStatus: availabilityChangeEvents.previousStatus,
       newStatus: availabilityChangeEvents.newStatus,
@@ -407,7 +421,10 @@ export async function processPendingEmailNotifications(input?: {
   };
 
   for (const row of rows) {
-    const kind = classifyAvailabilityChange(row.previousStatus, row.newStatus);
+    const kind =
+      notificationKindFromEventKind(row.eventKind) ??
+      classifyAvailabilityChange(row.previousStatus, row.newStatus);
+
     const prefs = applyPreferenceDefaults(row);
     const recipient = row.userEmail;
 
@@ -467,9 +484,8 @@ export async function processPendingEmailNotifications(input?: {
       continue;
     }
 
-    const notificationKind = kind;
     const copy = buildEmailContent({
-      kind: notificationKind,
+      kind,
       title: row.movieTitle,
       locationLabel: buildLocationLabel(
         row.locationLabel,
@@ -487,7 +503,7 @@ export async function processPendingEmailNotifications(input?: {
         movieId: row.movieId,
         locationId: row.locationId,
         status: "would_send",
-        kind: notificationKind,
+        kind,
         subject: copy.subject,
         recipient,
       });
@@ -523,7 +539,7 @@ export async function processPendingEmailNotifications(input?: {
         movieId: row.movieId,
         locationId: row.locationId,
         status: "skipped",
-        kind: notificationKind,
+        kind,
         subject: copy.subject,
         recipient,
         reason: "delivery_already_exists",
@@ -557,7 +573,7 @@ export async function processPendingEmailNotifications(input?: {
         movieId: row.movieId,
         locationId: row.locationId,
         status: "sent",
-        kind: notificationKind,
+        kind,
         subject: copy.subject,
         recipient,
       });
@@ -581,7 +597,7 @@ export async function processPendingEmailNotifications(input?: {
         movieId: row.movieId,
         locationId: row.locationId,
         status: "failed",
-        kind: notificationKind,
+        kind,
         subject: copy.subject,
         recipient,
         errorMessage: message,

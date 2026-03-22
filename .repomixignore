@@ -37,6 +37,10 @@ yarn-error.log*
 .pnpm-debug.log*
 *.pem
 repomix-output.xml
+archives/**
+
+# Drizzle migration metadata
+drizzle/meta/**
 
 # editor/workspace
 .vscode/

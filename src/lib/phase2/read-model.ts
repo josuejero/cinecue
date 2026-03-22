@@ -1,19 +1,18 @@
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
-  availabilityChangeEvents,
   locations,
   movieLocalStatuses,
   movies,
   showtimes,
   userMovieFollows,
 } from "@/db/schema";
-import { and, asc, eq } from "drizzle-orm";
-import crypto from "node:crypto";
+import { getServerEnv } from "@/lib/env";
+import {
+  buildAvailabilityEvents,
+  insertAvailabilityEvents,
+} from "@/lib/phase4/change-detection";
 import { NotFoundError } from "./errors";
-
-function createId() {
-  return crypto.randomUUID();
-}
 
 export type MovieAvailabilityStatus =
   | "now_playing"
@@ -36,18 +35,6 @@ export type DerivedMovieLocalState = {
   lastShowingAt: Date | null;
   theatreCount: number;
 };
-
-function sameTimestamp(left?: Date | null, right?: Date | null) {
-  if (!left && !right) {
-    return true;
-  }
-
-  if (!left || !right) {
-    return false;
-  }
-
-  return left.getTime() === right.getTime();
-}
 
 export function deriveMovieLocalState(input: {
   currentBusinessDate: string;
@@ -97,8 +84,13 @@ export function deriveMovieLocalState(input: {
 export async function refreshMovieLocalStatusForLocation(
   locationId: string,
   movieId: string,
+  input?: {
+    sourceSyncRunId?: string | null;
+    emitEvents?: boolean;
+  },
 ) {
   const db = getDb();
+  const env = getServerEnv();
   const currentBusinessDate = new Date().toISOString().slice(0, 10);
 
   const [movie] = await db
@@ -136,6 +128,8 @@ export async function refreshMovieLocalStatusForLocation(
       status: movieLocalStatuses.status,
       theatreCount: movieLocalStatuses.theatreCount,
       nextShowingAt: movieLocalStatuses.nextShowingAt,
+      firstShowingAt: movieLocalStatuses.firstShowingAt,
+      lastShowingAt: movieLocalStatuses.lastShowingAt,
       statusChangedAt: movieLocalStatuses.statusChangedAt,
     })
     .from(movieLocalStatuses)
@@ -147,27 +141,27 @@ export async function refreshMovieLocalStatusForLocation(
     )
     .limit(1);
 
-  const statusChanged = previous?.status !== derived.status;
-  const meaningfulChange =
-    !!previous &&
-    (statusChanged ||
-      previous.theatreCount !== derived.theatreCount ||
-      !sameTimestamp(previous.nextShowingAt, derived.nextShowingAt));
-
-  if (meaningfulChange) {
-    await db.insert(availabilityChangeEvents).values({
-      id: createId(),
+  if (previous && (input?.emitEvents ?? true)) {
+    const events = buildAvailabilityEvents({
       movieId,
       locationId,
-      previousStatus: previous?.status ?? null,
-      newStatus: derived.status,
-      previousTheatreCount: previous?.theatreCount ?? null,
-      newTheatreCount: derived.theatreCount,
-      previousNextShowingAt: previous?.nextShowingAt ?? null,
-      newNextShowingAt: derived.nextShowingAt,
-      changedAt: new Date(),
+      previous: {
+        status: previous.status,
+        nextShowingAt: previous.nextShowingAt,
+        firstShowingAt: previous.firstShowingAt,
+        lastShowingAt: previous.lastShowingAt,
+        theatreCount: previous.theatreCount,
+      },
+      current: derived,
+      currentBusinessDate,
+      finalShowingSoonHours: env.PHASE4_FINAL_SHOWING_SOON_HOURS,
+      sourceSyncRunId: input?.sourceSyncRunId ?? null,
     });
+
+    await insertAvailabilityEvents(events);
   }
+
+  const statusChanged = previous?.status !== derived.status;
 
   await db
     .insert(movieLocalStatuses)
@@ -207,17 +201,27 @@ export async function refreshMovieLocalStatusForLocation(
 export async function refreshSelectedMovieLocalStatuses(
   locationId: string,
   movieIds: string[],
+  input?: {
+    sourceSyncRunId?: string | null;
+    emitEvents?: boolean;
+  },
 ) {
   const uniqueMovieIds = [...new Set(movieIds.filter(Boolean))];
 
   for (const movieId of uniqueMovieIds) {
-    await refreshMovieLocalStatusForLocation(locationId, movieId);
+    await refreshMovieLocalStatusForLocation(locationId, movieId, input);
   }
 
   return uniqueMovieIds.length;
 }
 
-export async function refreshLocationReadModel(locationId: string) {
+export async function refreshLocationReadModel(
+  locationId: string,
+  input?: {
+    sourceSyncRunId?: string | null;
+    emitEvents?: boolean;
+  },
+) {
   const db = getDb();
 
   const showtimeMovieRows = await db
@@ -237,7 +241,7 @@ export async function refreshLocationReadModel(locationId: string) {
     ]),
   ];
 
-  await refreshSelectedMovieLocalStatuses(locationId, movieIds);
+  await refreshSelectedMovieLocalStatuses(locationId, movieIds, input);
 
   return {
     locationId,
