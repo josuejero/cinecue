@@ -10,6 +10,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: "jwt",
   },
+  callbacks: {
+    jwt({ token }) {
+      token.userId = token.sub ?? token.userId;
+      return token;
+    },
+    session({ session, token }) {
+      if (session.user) {
+        (session.user as { id?: string }).id =
+          (token.userId as string | undefined) ?? token.sub ?? undefined;
+      }
+
+      return session;
+    },
+  },
   providers: githubConfigured
     ? [
         GitHub({

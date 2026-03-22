@@ -6,6 +6,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 Copy `.env.example` to `.env` and replace every placeholder value (especially `GRACENOTE_API_KEY`, which defaults to `REPLACE_WITH_REAL_GRACENOTE_KEY`, plus the TMDB key/token and any other secrets) before running Phase 1 syncs. The sync script now fails immediately while those placeholders remain so you won't accidentally hit Gracenote with invalid credentials.
 
+> **Important:** Next.js automatically sets `NODE_ENV` to `production` when you run `npm run build`. Forcing `NODE_ENV=development` while building triggers the `_global-error` prerender failure, so avoid pinning the variable in your shell or `.env`. The build config already resets it back to `production` when needed.
+
 First, run the development server:
 
 ```bash

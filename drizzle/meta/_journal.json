@@ -15,6 +15,13 @@
       "when": 1774096693553,
       "tag": "0001_oval_lifeguard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774136116439,
+      "tag": "0002_familiar_paibok",
+      "breakpoints": true
     }
   ]
 }

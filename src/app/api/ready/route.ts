@@ -33,7 +33,7 @@ export async function GET() {
   return NextResponse.json(
     {
       ok,
-      phase: 1,
+      phase: 2,
       checks,
       timestamp: new Date().toISOString(),
     },

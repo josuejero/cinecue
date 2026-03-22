@@ -12,7 +12,8 @@
     "worker": "tsx src/worker/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
-    "phase1:sync": "tsx src/scripts/phase1-sync.ts"
+    "phase1:sync": "tsx src/scripts/phase1-sync.ts",
+    "phase2:rebuild": "tsx src/scripts/phase2-rebuild.ts"
   },
   "dependencies": {
     "bullmq": "5.71.0",

@@ -4,7 +4,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "cinecue-web",
-    phase: 0,
+    phase: 2,
     timestamp: new Date().toISOString(),
   });
 }

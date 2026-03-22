@@ -35,6 +35,7 @@ import type {
   NormalizedTheatre,
   SourceProvider
 } from "@/lib/providers/types";
+import { refreshLocationReadModelByNormalizedKey } from "@/lib/phase2/read-model";
 import { and, eq, gte, like, lte } from "drizzle-orm";
 import crypto from "node:crypto";
 
@@ -59,10 +60,14 @@ type SyncSummary = {
   conflicts: number;
 };
 
-function buildSkippedSyncSummary(
+async function buildSkippedSyncSummary(
+  zip: string,
   jobType: string,
   extras: Record<string, unknown> = {},
 ) {
+  const locationKey = buildLocationKey(zip);
+  await refreshLocationReadModelByNormalizedKey(locationKey);
+
   return {
     syncRunId: `skipped:gracenote:${jobType}:${createId()}`,
     processed: 0,
@@ -814,45 +819,55 @@ async function resolveMovieWithEnrichment(movie: NormalizedMovieSeed) {
   return resolveOrCreateMovie(enrichedMovie);
 }
 
-async function upsertShowtime(showing: NormalizedShowing, movieId: string, theatreId: string) {
+async function upsertShowtime(
+  showing: NormalizedShowing,
+  movieId: string,
+  theatreId: string,
+  locationId: string,
+) {
   const db = getDb();
   const startAtLocalDate = new Date(showing.startAtLocal);
   if (Number.isNaN(startAtLocalDate.getTime())) {
     throw new Error(`Invalid showtime startAtLocal value: ${showing.startAtLocal}`);
   }
 
-  await db.insert(showtimes).values({
-    id: createId(),
-    movieId,
-    theatreId,
-    provider: showing.provider,
-    sourceMovieExternalId: showing.movie.tmsId ?? showing.movie.rootId ?? null,
-    startAtLocal: startAtLocalDate,
-    businessDate: showing.businessDate,
-    qualities: showing.qualities ?? null,
-    ticketUrl: showing.ticketUrl ?? null,
-    isBargain: showing.isBargain,
-    isAdvanceTicket: showing.isAdvanceTicket,
-    rawShowtime: showing.raw,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  }).onConflictDoUpdate({
-    target: [
-      showtimes.provider,
-      showtimes.theatreId,
-      showtimes.movieId,
-      showtimes.startAtLocal,
-    ],
-    set: {
+  await db
+    .insert(showtimes)
+    .values({
+      id: createId(),
+      movieId,
+      theatreId,
+      locationId,
+      provider: showing.provider,
+      sourceMovieExternalId: showing.movie.tmsId ?? showing.movie.rootId ?? null,
+      startAtLocal: startAtLocalDate,
       businessDate: showing.businessDate,
       qualities: showing.qualities ?? null,
       ticketUrl: showing.ticketUrl ?? null,
       isBargain: showing.isBargain,
       isAdvanceTicket: showing.isAdvanceTicket,
       rawShowtime: showing.raw,
+      createdAt: new Date(),
       updatedAt: new Date(),
-    },
-  });
+    })
+    .onConflictDoUpdate({
+      target: [
+        showtimes.provider,
+        showtimes.locationId,
+        showtimes.theatreId,
+        showtimes.movieId,
+        showtimes.startAtLocal,
+      ],
+      set: {
+        businessDate: showing.businessDate,
+        qualities: showing.qualities ?? null,
+        ticketUrl: showing.ticketUrl ?? null,
+        isBargain: showing.isBargain,
+        isAdvanceTicket: showing.isAdvanceTicket,
+        rawShowtime: showing.raw,
+        updatedAt: new Date(),
+      },
+    });
 }
 
 export async function syncTheatresByZip(input: {
@@ -874,7 +889,7 @@ export async function syncTheatresByZip(input: {
   );
 
   try {
-    await upsertZipLocation(normalizedZip, radiusMiles);
+    const location = await upsertZipLocation(normalizedZip, radiusMiles);
 
     const normalizedTheatres = await getTheatresByZip({
       zip: normalizedZip,
@@ -937,7 +952,7 @@ export async function syncShowingsByZip(input: {
   );
 
   try {
-    await upsertZipLocation(normalizedZip, radiusMiles);
+    const location = await upsertZipLocation(normalizedZip, radiusMiles);
 
     const normalizedShowings = await getAllShowingsByZip({
       zip: normalizedZip,
@@ -975,7 +990,7 @@ export async function syncShowingsByZip(input: {
       }
 
       const theatreId = await upsertTheatre(showing.theatre);
-      await upsertShowtime(showing, resolution.movieId, theatreId);
+      await upsertShowtime(showing, resolution.movieId, theatreId, location.id);
 
       if (resolution.created) {
         created += 1;
@@ -1080,10 +1095,10 @@ export async function syncZipPhaseOne(input: {
       console.warn(
         "Gracenote theatre sync (theatres endpoint) returned 403 Not Authorized; skipping the dedicated theatre sync and continuing with showings. This key likely does not include Theatre List access.",
       );
-      theatresSummary = buildSkippedSyncSummary("theatres", {
-        theatres: 0,
-        reason: "gracenote_not_authorized",
-      });
+    theatresSummary = await buildSkippedSyncSummary(input.zip, "theatres", {
+      theatres: 0,
+      reason: "gracenote_not_authorized",
+    });
     } else {
       throw error;
     }
@@ -1108,9 +1123,9 @@ export async function syncZipPhaseOne(input: {
       console.warn(
         "Gracenote future releases sync (movies/futureReleases endpoint) returned 403 Not Authorized; skipping future releases and continuing with showings-only data. This key likely does not include Future Releases access.",
       );
-      futureReleasesSummary = buildSkippedSyncSummary("future_releases", {
-        reason: "gracenote_not_authorized",
-      });
+    futureReleasesSummary = await buildSkippedSyncSummary(input.zip, "future_releases", {
+      reason: "gracenote_not_authorized",
+    });
     } else {
       throw error;
     }

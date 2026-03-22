@@ -43,6 +43,14 @@ export const matchConfidenceEnum = pgEnum("match_confidence", [
   "low",
 ]);
 
+export const movieAvailabilityStatusEnum = pgEnum("movie_availability_status", [
+  "now_playing",
+  "advance_tickets",
+  "coming_soon",
+  "no_local_schedule_yet",
+  "stopped_playing",
+]);
+
 export const appRuntimeState = pgTable("app_runtime_state", {
   key: text("key").primaryKey(),
   value: jsonb("value").notNull().default(sql`'{}'::jsonb`),
@@ -66,6 +74,50 @@ export const locations = pgTable(
   (table) => ({
     normalizedKeyUnique: uniqueIndex("locations_normalized_key_unique").on(
       table.normalizedKey,
+    ),
+  }),
+);
+
+export const appUsers = pgTable(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    authSubject: text("auth_subject").notNull(),
+    email: text("email"),
+    name: text("name"),
+    image: text("image"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    authSubjectUnique: uniqueIndex("users_auth_subject_unique").on(table.authSubject),
+    emailIdx: index("users_email_idx").on(table.email),
+  }),
+);
+
+export const userSavedLocations = pgTable(
+  "user_saved_locations",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => appUsers.id, { onDelete: "cascade" }),
+    locationId: text("location_id")
+      .notNull()
+      .references(() => locations.id, { onDelete: "cascade" }),
+    label: text("label"),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userLocationUnique: uniqueIndex("user_saved_locations_user_location_unique").on(
+      table.userId,
+      table.locationId,
+    ),
+    userDefaultIdx: index("user_saved_locations_user_default_idx").on(
+      table.userId,
+      table.isDefault,
     ),
   }),
 );
@@ -236,6 +288,39 @@ export const providerMappingConflicts = pgTable(
   }),
 );
 
+export const userMovieFollows = pgTable(
+  "user_movie_follows",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => appUsers.id, { onDelete: "cascade" }),
+    movieId: text("movie_id")
+      .notNull()
+      .references(() => movies.id, { onDelete: "cascade" }),
+    locationId: text("location_id")
+      .notNull()
+      .references(() => locations.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userMovieLocationUnique: uniqueIndex("user_movie_follows_user_movie_location_unique").on(
+      table.userId,
+      table.movieId,
+      table.locationId,
+    ),
+    userLocationIdx: index("user_movie_follows_user_location_idx").on(
+      table.userId,
+      table.locationId,
+    ),
+    movieLocationIdx: index("user_movie_follows_movie_location_idx").on(
+      table.movieId,
+      table.locationId,
+    ),
+  }),
+);
+
 export const showtimes = pgTable(
   "showtimes",
   {
@@ -246,6 +331,9 @@ export const showtimes = pgTable(
     theatreId: text("theatre_id")
       .notNull()
       .references(() => theatres.id, { onDelete: "cascade" }),
+    locationId: text("location_id").references(() => locations.id, {
+      onDelete: "set null",
+    }),
     provider: sourceProviderEnum("provider").notNull(),
     sourceMovieExternalId: text("source_movie_external_id"),
     startAtLocal: timestamp("start_at_local", { withTimezone: false }).notNull(),
@@ -259,16 +347,96 @@ export const showtimes = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    uniqueShowtime: uniqueIndex("showtimes_provider_theatre_movie_start_unique").on(
+    uniqueShowtimeByLocation: uniqueIndex(
+      "showtimes_provider_location_theatre_movie_start_unique",
+    ).on(
       table.provider,
+      table.locationId,
       table.theatreId,
       table.movieId,
       table.startAtLocal,
     ),
-    movieDateIdx: index("showtimes_movie_date_idx").on(table.movieId, table.businessDate),
-    theatreDateIdx: index("showtimes_theatre_date_idx").on(
-      table.theatreId,
+    movieLocationDateIdx: index("showtimes_movie_location_date_idx").on(
+      table.movieId,
+      table.locationId,
       table.businessDate,
+    ),
+    theatreLocationDateIdx: index("showtimes_theatre_location_date_idx").on(
+      table.theatreId,
+      table.locationId,
+      table.businessDate,
+    ),
+  }),
+);
+
+export const movieLocalStatuses = pgTable(
+  "movie_local_status",
+  {
+    movieId: text("movie_id")
+      .notNull()
+      .references(() => movies.id, { onDelete: "cascade" }),
+    locationId: text("location_id")
+      .notNull()
+      .references(() => locations.id, { onDelete: "cascade" }),
+    status: movieAvailabilityStatusEnum("status").notNull(),
+    nextShowingAt: timestamp("next_showing_at", { withTimezone: false }),
+    firstShowingAt: timestamp("first_showing_at", { withTimezone: false }),
+    lastShowingAt: timestamp("last_showing_at", { withTimezone: false }),
+    theatreCount: integer("theatre_count").notNull().default(0),
+    lastSeenInProviderAt: timestamp("last_seen_in_provider_at", {
+      withTimezone: true,
+    }).notNull().defaultNow(),
+    statusChangedAt: timestamp("status_changed_at", {
+      withTimezone: true,
+    }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({
+      name: "movie_local_status_pk",
+      columns: [table.movieId, table.locationId],
+    }),
+    locationStatusIdx: index("movie_local_status_location_status_idx").on(
+      table.locationId,
+      table.status,
+    ),
+    locationNextShowingIdx: index("movie_local_status_location_next_showing_idx").on(
+      table.locationId,
+      table.nextShowingAt,
+    ),
+  }),
+);
+
+export const availabilityChangeEvents = pgTable(
+  "availability_change_events",
+  {
+    id: text("id").primaryKey(),
+    movieId: text("movie_id")
+      .notNull()
+      .references(() => movies.id, { onDelete: "cascade" }),
+    locationId: text("location_id")
+      .notNull()
+      .references(() => locations.id, { onDelete: "cascade" }),
+    previousStatus: movieAvailabilityStatusEnum("previous_status"),
+    newStatus: movieAvailabilityStatusEnum("new_status").notNull(),
+    previousTheatreCount: integer("previous_theatre_count"),
+    newTheatreCount: integer("new_theatre_count").notNull(),
+    previousNextShowingAt: timestamp("previous_next_showing_at", {
+      withTimezone: false,
+    }),
+    newNextShowingAt: timestamp("new_next_showing_at", {
+      withTimezone: false,
+    }),
+    changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    locationChangedAtIdx: index("availability_change_events_location_changed_at_idx").on(
+      table.locationId,
+      table.changedAt,
+    ),
+    movieChangedAtIdx: index("availability_change_events_movie_changed_at_idx").on(
+      table.movieId,
+      table.changedAt,
     ),
   }),
 );
