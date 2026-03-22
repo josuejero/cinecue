@@ -1,8 +1,15 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { auth } from "@/auth";
+import { PageHero, PageHeroMeta, PageShell } from "@/components/app-shell";
 import { SignOutButton } from "@/components/auth-buttons";
 import { DashboardClient } from "@/components/dashboard-client";
+import { ActionLink, BellIcon, MapPinIcon } from "@/components/ui";
 import { redirect } from "next/navigation";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  description: "Track followed movies by local theatrical status, nearby theatres, and recent availability changes.",
+};
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -12,39 +19,35 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8">
-      <header className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-            CineCue
-          </p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-            Welcome back{session.user.name ? `, ${session.user.name}` : ""}
-          </h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Track followed movies by local status, nearby theatres, and recent
-            availability changes.
-          </p>
-        </div>
+    <PageShell width="wide">
+      <div className="space-y-6">
+        <PageHero
+          actions={
+            <>
+              <ActionLink href="/settings/locations" icon={<MapPinIcon />} size="lg">
+                Locations
+              </ActionLink>
+              <ActionLink href="/settings/notifications" icon={<BellIcon />} size="lg">
+                Notification settings
+              </ActionLink>
+              <SignOutButton size="lg" variant="primary" />
+            </>
+          }
+          description="Track followed movies by local status, nearby theatres, and recent availability changes."
+          title={`Welcome back${session.user.name ? `, ${session.user.name}` : ""}`}
+          meta={
+            <PageHeroMeta
+              items={[
+                "Poster-led follow workflow",
+                "Live local refresh",
+                "Location-aware availability",
+              ]}
+            />
+          }
+        />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            className="inline-flex h-11 items-center rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-slate-900"
-            href="/settings/locations"
-          >
-            Locations
-          </Link>
-          <Link
-            className="inline-flex h-11 items-center rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-slate-900"
-            href="/settings/notifications"
-          >
-            Notification settings
-          </Link>
-          <SignOutButton className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700" />
-        </div>
-      </header>
-
-      <DashboardClient />
-    </main>
+        <DashboardClient />
+      </div>
+    </PageShell>
   );
 }

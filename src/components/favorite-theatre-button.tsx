@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { ActionButton, HeartIcon } from "@/components/ui";
 import { readJson } from "@/lib/phase3/client";
 
 export function FavoriteTheatreButton(props: {
   locationId: string;
   theatreId: string;
   initialFavorite: boolean;
+  className?: string;
 }) {
   const [favorite, setFavorite] = useState(props.initialFavorite);
   const [busy, setBusy] = useState(false);
@@ -30,13 +32,15 @@ export function FavoriteTheatreButton(props: {
   }
 
   return (
-    <button
-      className="inline-flex h-10 items-center rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-slate-900 disabled:opacity-50"
+    <ActionButton
+      className={props.className}
       disabled={busy}
+      icon={<HeartIcon filled={favorite} />}
       onClick={() => void toggleFavorite()}
-      type="button"
+      size="sm"
+      variant={favorite ? "primary" : "secondary"}
     >
-      {favorite ? "★ Favorite theatre" : "☆ Favorite theatre"}
-    </button>
+      {busy ? "Updating..." : favorite ? "Saved theatre" : "Save theatre"}
+    </ActionButton>
   );
 }

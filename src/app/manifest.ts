@@ -4,11 +4,11 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "CineCue",
     short_name: "CineCue",
-    description: "Follow movies and track local theatre availability changes.",
+    description: "Track the local theatrical life of the movies you care about.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f8fafc",
-    theme_color: "#0f172a",
+    background_color: "#f5eee4",
+    theme_color: "#2a1a14",
     icons: [
       {
         src: "/icon",

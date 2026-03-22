@@ -12,19 +12,37 @@ export default function Icon() {
     (
       <div
         style={{
-          background: "#0f172a",
-          color: "#ffffff",
+          background:
+            "radial-gradient(circle at top, rgba(198,154,90,0.45), transparent 36%), linear-gradient(180deg, #3c241d 0%, #251712 100%)",
+          color: "#fdf6ee",
           width: "100%",
           height: "100%",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: 220,
-          fontWeight: 700,
-          letterSpacing: -10,
+          position: "relative",
         }}
       >
-        C
+        <div
+          style={{
+            position: "absolute",
+            width: 332,
+            height: 332,
+            borderRadius: 9999,
+            border: "18px solid rgba(255,255,255,0.12)",
+            boxShadow: "0 0 0 18px rgba(198,154,90,0.16)",
+          }}
+        />
+        <div
+          style={{
+            fontSize: 214,
+            fontWeight: 700,
+            letterSpacing: -14,
+            lineHeight: 1,
+          }}
+        >
+          C
+        </div>
       </div>
     ),
     {

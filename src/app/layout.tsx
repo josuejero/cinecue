@@ -1,21 +1,25 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Manrope } from "next/font/google";
 import { PwaProvider } from "@/components/pwa-provider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
-  title: "CineCue",
-  description: "Follow movies and track local theatre availability changes.",
+  title: {
+    default: "CineCue",
+    template: "%s | CineCue",
+  },
+  description: "Track the local theatrical life of the movies you care about.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -25,7 +29,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a",
+  themeColor: "#2a1a14",
 };
 
 export default function RootLayout({
@@ -36,11 +40,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${manrope.variable} ${fraunces.variable} h-full antialiased`}
     >
       {/* Browser extensions like Grammarly mutate <body> attributes after hydration, so skip the diff */}
       <body
-        className="min-h-full bg-slate-50 text-slate-900"
+        className="min-h-full bg-[color:var(--paper)] text-[color:var(--foreground)]"
         suppressHydrationWarning={true}
       >
         <PwaProvider />

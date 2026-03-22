@@ -1,8 +1,15 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { auth } from "@/auth";
+import { PageHero, PageShell } from "@/components/app-shell";
 import { SignOutButton } from "@/components/auth-buttons";
 import { MovieDetailClient } from "@/components/movie-detail-client";
+import { ActionLink, ArrowLeftIcon, BellIcon } from "@/components/ui";
 import { redirect } from "next/navigation";
+
+export const metadata: Metadata = {
+  title: "Movie Detail",
+  description: "Inspect local showtimes, nearby theatres, and follow state for a specific movie.",
+};
 
 export default async function MoviePage({
   params,
@@ -24,27 +31,26 @@ export default async function MoviePage({
     : resolvedSearchParams.locationId ?? null;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8">
-      <header className="mb-8 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            className="inline-flex h-11 items-center rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-slate-900"
-            href="/dashboard"
-          >
-            Back to dashboard
-          </Link>
-          <Link
-            className="inline-flex h-11 items-center rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-slate-900"
-            href="/settings/notifications"
-          >
-            Notification settings
-          </Link>
-        </div>
+    <PageShell width="wide">
+      <div className="space-y-6">
+        <PageHero
+          actions={
+            <>
+              <ActionLink href="/dashboard" icon={<ArrowLeftIcon />} size="lg">
+                Back to dashboard
+              </ActionLink>
+              <ActionLink href="/settings/notifications" icon={<BellIcon />} size="lg">
+                Notification settings
+              </ActionLink>
+              <SignOutButton size="lg" variant="primary" />
+            </>
+          }
+          description="Inspect the local theatrical life of a single movie: status, next showings, nearby theatres, and your follow state."
+          title="Movie availability"
+        />
 
-        <SignOutButton className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700" />
-      </header>
-
-      <MovieDetailClient movieId={movieId} requestedLocationId={requestedLocationId} />
-    </main>
+        <MovieDetailClient movieId={movieId} requestedLocationId={requestedLocationId} />
+      </div>
+    </PageShell>
   );
 }

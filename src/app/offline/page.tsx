@@ -1,18 +1,39 @@
+import type { Metadata } from "next";
+import { PageShell } from "@/components/app-shell";
+import { ActionLink, ArrowLeftIcon, Eyebrow, Notice, Panel } from "@/components/ui";
+
+export const metadata: Metadata = {
+  title: "Offline",
+  description: "CineCue's offline fallback screen.",
+};
+
 export default function OfflinePage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-6 px-6 py-12">
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">
-          CineCue
-        </p>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
-          You are offline
-        </h1>
-        <p className="mt-3 text-base leading-7 text-slate-600">
-          CineCue can still open previously loaded screens, but live availability
-          updates, push enrollment, and provider-backed data need a connection.
-        </p>
+    <PageShell width="narrow">
+      <div className="flex min-h-[calc(100vh-3rem)] flex-col justify-center gap-6">
+        <Panel className="cine-enter overflow-hidden p-8 sm:p-10">
+          <div className="space-y-4">
+            <Eyebrow>CineCue</Eyebrow>
+            <h1 className="font-display text-4xl tracking-[-0.05em] text-[color:var(--foreground)] sm:text-5xl">
+              You are offline
+            </h1>
+            <p className="max-w-2xl text-sm leading-7 text-[color:var(--foreground-muted)] sm:text-base">
+              Previously loaded screens may still open, but live availability updates, push
+              enrollment, and provider-backed data need a connection.
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <ActionLink href="/" icon={<ArrowLeftIcon />} size="lg" variant="primary">
+              Return home
+            </ActionLink>
+          </div>
+        </Panel>
+
+        <Notice tone="neutral">
+          If this device has already loaded a CineCue screen, the app may still show cached pages while the network is unavailable.
+        </Notice>
       </div>
-    </main>
+    </PageShell>
   );
 }

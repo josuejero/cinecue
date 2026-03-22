@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { ActionButton, DownloadIcon } from "@/components/ui";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -16,9 +18,15 @@ declare global {
 export function InstallAppButton({
   className,
   children = "Install app",
+  icon = <DownloadIcon />,
+  size = "md",
+  variant = "secondary",
 }: {
   className?: string;
-  children?: React.ReactNode;
+  children?: ReactNode;
+  icon?: ReactNode;
+  size?: "sm" | "md" | "lg";
+  variant?: "primary" | "secondary" | "ghost" | "danger";
 }) {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
@@ -63,9 +71,10 @@ export function InstallAppButton({
   }
 
   return (
-    <button
+    <ActionButton
       className={className}
       disabled={busy}
+      icon={icon}
       onClick={() => {
         void (async () => {
           try {
@@ -78,9 +87,10 @@ export function InstallAppButton({
           }
         })();
       }}
-      type="button"
+      size={size}
+      variant={variant}
     >
       {busy ? "Installing..." : children}
-    </button>
+    </ActionButton>
   );
 }

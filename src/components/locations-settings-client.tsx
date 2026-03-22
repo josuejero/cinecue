@@ -1,6 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  ActionButton,
+  EmptyState,
+  FieldLabel,
+  MapPinIcon,
+  MetaPill,
+  Notice,
+  Panel,
+  SectionHeading,
+  SelectInput,
+  TextInput,
+} from "@/components/ui";
 import { readJson } from "@/lib/phase3/client";
 import { formatDateTime } from "@/lib/phase3/format";
 
@@ -119,113 +131,179 @@ export function LocationsSettingsClient() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Add a location</h2>
-        <form className="mt-4 grid gap-4 sm:grid-cols-4" onSubmit={handleCreateLocation}>
-          <label className="flex flex-col gap-2 sm:col-span-1">
-            <span className="text-sm font-medium text-slate-700">ZIP</span>
-            <input
-              className="h-11 rounded-2xl border border-slate-300 px-4 outline-none ring-0"
-              onChange={(event) => setPostalCode(event.target.value)}
-              placeholder="10001"
-              required
-              value={postalCode}
+      <Panel className="cine-enter p-6 sm:p-8">
+        <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
+          <div className="space-y-5">
+            <SectionHeading
+              description="Save multiple markets, assign a human label, and decide which area becomes the default lens for your dashboard and alerts."
+              eyebrow="Add a location"
+              title="Build your local map"
             />
-          </label>
 
-          <label className="flex flex-col gap-2 sm:col-span-2">
-            <span className="text-sm font-medium text-slate-700">Label</span>
-            <input
-              className="h-11 rounded-2xl border border-slate-300 px-4 outline-none ring-0"
-              onChange={(event) => setLabel(event.target.value)}
-              placeholder="Home, Work, Campus..."
-              value={label}
-            />
-          </label>
+            <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleCreateLocation}>
+              <div className="space-y-2">
+                <FieldLabel htmlFor="location-zip">ZIP</FieldLabel>
+                <TextInput
+                  id="location-zip"
+                  onChange={(event) => setPostalCode(event.target.value)}
+                  placeholder="10001"
+                  required
+                  value={postalCode}
+                />
+              </div>
 
-          <label className="flex flex-col gap-2 sm:col-span-1">
-            <span className="text-sm font-medium text-slate-700">Radius</span>
-            <select
-              className="h-11 rounded-2xl border border-slate-300 px-4 outline-none ring-0"
-              onChange={(event) => setRadiusMiles(Number(event.target.value))}
-              value={radiusMiles}
-            >
-              {[5, 10, 15, 25, 35, 50].map((value) => (
-                <option key={value} value={value}>
-                  {value} miles
-                </option>
-              ))}
-            </select>
-          </label>
+              <div className="space-y-2">
+                <FieldLabel htmlFor="location-label">Label</FieldLabel>
+                <TextInput
+                  id="location-label"
+                  onChange={(event) => setLabel(event.target.value)}
+                  placeholder="Home, Work, Campus..."
+                  value={label}
+                />
+              </div>
 
-          <div className="sm:col-span-4">
-            <button
-              className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-50"
-              disabled={saving}
-              type="submit"
-            >
-              {saving ? "Saving..." : "Save location"}
-            </button>
+              <div className="space-y-2 sm:col-span-2">
+                <FieldLabel htmlFor="location-radius">Radius</FieldLabel>
+                <SelectInput
+                  id="location-radius"
+                  onChange={(event) => setRadiusMiles(Number(event.target.value))}
+                  value={radiusMiles}
+                >
+                  {[5, 10, 15, 25, 35, 50].map((value) => (
+                    <option key={value} value={value}>
+                      {value} miles
+                    </option>
+                  ))}
+                </SelectInput>
+              </div>
+
+              <div className="sm:col-span-2">
+                <ActionButton
+                  disabled={saving}
+                  icon={<MapPinIcon />}
+                  size="lg"
+                  type="submit"
+                  variant="primary"
+                >
+                  {saving ? "Saving..." : "Save location"}
+                </ActionButton>
+              </div>
+            </form>
           </div>
-        </form>
-      </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold text-slate-900">Your saved locations</h2>
-          {defaultLocation ? (
-            <p className="text-sm text-slate-600">
-              Default: <span className="font-medium text-slate-900">{defaultLocation.label}</span>
-            </p>
-          ) : null}
+          <Panel className="p-5 sm:p-6" tone="soft">
+            <SectionHeading
+              description="The default location powers your first dashboard view, local movie detail, and the market CineCue assumes for alerts."
+              eyebrow="Current default"
+              title={defaultLocation?.label ?? "No default yet"}
+            />
+
+            <div className="mt-5 space-y-3">
+              {defaultLocation ? (
+                <>
+                  <MetaPill>
+                    {defaultLocation.kind === "zip"
+                      ? `ZIP ${defaultLocation.postalCode}`
+                      : `${defaultLocation.latitude}, ${defaultLocation.longitude}`}
+                  </MetaPill>
+                  <MetaPill>
+                    {defaultLocation.distanceOverrideMiles ?? defaultLocation.radiusMiles} mile
+                    radius
+                  </MetaPill>
+                  <MetaPill>
+                    {defaultLocation.followCount} follow
+                    {defaultLocation.followCount === 1 ? "" : "s"}
+                  </MetaPill>
+                  <MetaPill>
+                    {defaultLocation.favoriteTheatreCount} saved theatre
+                    {defaultLocation.favoriteTheatreCount === 1 ? "" : "s"}
+                  </MetaPill>
+                  <MetaPill>Last used {formatDateTime(defaultLocation.lastUsedAt)}</MetaPill>
+                </>
+              ) : (
+                <Notice tone="neutral">
+                  Add your first location and CineCue will automatically promote it to default.
+                </Notice>
+              )}
+            </div>
+          </Panel>
         </div>
+      </Panel>
+
+      {message ? <Notice tone="success">{message}</Notice> : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
+
+      <Panel className="p-6 sm:p-8" tone="soft">
+        <SectionHeading
+          description="Each saved area keeps its own follows, favourite theatres, and usage context."
+          eyebrow="Saved areas"
+          title="Your location library"
+        />
 
         {loading ? (
-          <p className="mt-4 text-sm text-slate-600">Loading locations...</p>
+          <div className="mt-6">
+            <Notice tone="neutral">Loading locations...</Notice>
+          </div>
         ) : locations.length === 0 ? (
-          <p className="mt-4 text-sm text-slate-600">No saved locations yet.</p>
+          <div className="mt-6">
+            <EmptyState title="No saved locations yet">
+              Add a ZIP above to create the first market CineCue should monitor for you.
+            </EmptyState>
+          </div>
         ) : (
-          <div className="mt-4 space-y-3">
+          <div className="mt-6 grid gap-4">
             {locations.map((location) => (
-              <div key={location.userLocationId} className="rounded-2xl border border-slate-200 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-slate-900">{location.label}</h3>
-                      {location.isDefault ? (
-                        <span className="rounded-full bg-slate-900 px-2 py-1 text-xs font-semibold text-white">
-                          Default
-                        </span>
-                      ) : null}
+              <Panel key={location.userLocationId} className="cine-hover-lift p-5 sm:p-6">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <h3 className="font-display text-2xl tracking-[-0.03em] text-[color:var(--foreground)]">
+                        {location.label}
+                      </h3>
+                      {location.isDefault ? <MetaPill>Default</MetaPill> : null}
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {location.kind === "zip"
-                        ? `ZIP ${location.postalCode}`
-                        : `${location.latitude}, ${location.longitude}`} · {location.distanceOverrideMiles ?? location.radiusMiles} mi · {location.followCount} follow{location.followCount === 1 ? "" : "s"} · {location.favoriteTheatreCount} favorite theatre{location.favoriteTheatreCount === 1 ? "" : "s"}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Last used: {formatDateTime(location.lastUsedAt)}
+
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <MetaPill>
+                        {location.kind === "zip"
+                          ? `ZIP ${location.postalCode}`
+                          : `${location.latitude}, ${location.longitude}`}
+                      </MetaPill>
+                      <MetaPill>
+                        {location.distanceOverrideMiles ?? location.radiusMiles} mile radius
+                      </MetaPill>
+                      <MetaPill>
+                        {location.followCount} follow{location.followCount === 1 ? "" : "s"}
+                      </MetaPill>
+                      <MetaPill>
+                        {location.favoriteTheatreCount} theatre
+                        {location.favoriteTheatreCount === 1 ? "" : "s"}
+                      </MetaPill>
+                    </div>
+
+                    <p className="text-sm leading-7 text-[color:var(--foreground-muted)]">
+                      Last used {formatDateTime(location.lastUsedAt)}. Added on{" "}
+                      {formatDateTime(location.createdAt)}.
                     </p>
                   </div>
 
                   {!location.isDefault ? (
-                    <button
-                      className="inline-flex h-10 items-center rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-slate-900"
-                      onClick={() => void handleMakeDefault(location.locationId)}
-                      type="button"
+                    <ActionButton
+                      onClick={() => {
+                        void handleMakeDefault(location.locationId);
+                      }}
+                      size="sm"
+                      variant="secondary"
                     >
                       Make default
-                    </button>
+                    </ActionButton>
                   ) : null}
                 </div>
-              </div>
+              </Panel>
             ))}
           </div>
         )}
-
-        {message ? <p className="mt-4 text-sm text-slate-600">{message}</p> : null}
-        {error ? <p className="mt-4 text-sm text-rose-600">{error}</p> : null}
-      </section>
+      </Panel>
     </div>
   );
 }

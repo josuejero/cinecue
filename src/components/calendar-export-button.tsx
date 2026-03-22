@@ -1,10 +1,23 @@
-export function CalendarExportButton(props: { href: string }) {
+import { ActionAnchor, DownloadIcon } from "@/components/ui";
+import type { ReactNode } from "react";
+
+export function CalendarExportButton(props: {
+  href: string;
+  className?: string;
+  children?: ReactNode;
+  icon?: ReactNode;
+  size?: "sm" | "md" | "lg";
+  variant?: "primary" | "secondary" | "ghost" | "danger";
+}) {
   return (
-    <a
-      className="inline-flex h-11 items-center rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-slate-900"
+    <ActionAnchor
+      className={props.className}
       href={props.href}
+      icon={props.icon ?? <DownloadIcon />}
+      size={props.size ?? "md"}
+      variant={props.variant ?? "secondary"}
     >
-      Export .ics
-    </a>
+      {props.children ?? "Export .ics"}
+    </ActionAnchor>
   );
 }

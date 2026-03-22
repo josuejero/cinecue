@@ -1,11 +1,24 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CalendarExportButton } from "@/components/calendar-export-button";
 import { FavoriteTheatreButton } from "@/components/favorite-theatre-button";
+import { StatusBadge } from "@/components/status-badge";
+import {
+  ActionAnchor,
+  ActionButton,
+  ActionLink,
+  ArrowLeftIcon,
+  EmptyState,
+  MetaPill,
+  Notice,
+  Panel,
+  PosterArt,
+  SectionHeading,
+  SelectInput,
+} from "@/components/ui";
 import { readJson } from "@/lib/phase3/client";
-import { formatDate, formatDateTime, humanizeStatus } from "@/lib/phase3/format";
+import { formatDate, formatDateTime } from "@/lib/phase3/format";
 
 type SavedLocation = {
   userLocationId: string;
@@ -74,19 +87,23 @@ type LocationsResponse = {
   locations: SavedLocation[];
 };
 
-function statusTone(status: string) {
-  switch (status) {
-    case "now_playing":
-      return "bg-emerald-100 text-emerald-800";
-    case "advance_tickets":
-      return "bg-blue-100 text-blue-800";
-    case "coming_soon":
-      return "bg-violet-100 text-violet-800";
-    case "stopped_playing":
-      return "bg-slate-200 text-slate-700";
-    default:
-      return "bg-amber-100 text-amber-800";
+function formatRuntime(runtimeMinutes: number | null) {
+  if (!runtimeMinutes) {
+    return null;
   }
+
+  const hours = Math.floor(runtimeMinutes / 60);
+  const minutes = runtimeMinutes % 60;
+
+  if (!hours) {
+    return `${minutes} min`;
+  }
+
+  if (!minutes) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${minutes}m`;
 }
 
 export function MovieDetailClient(input: {
@@ -123,17 +140,21 @@ export function MovieDetailClient(input: {
     setSelectedLocationId(nextLocation.locationId);
   }, [requestedLocationId]);
 
-  const loadDetail = useCallback(async (locationId: string) => {
-    const data = await readJson<MovieDetailResponse>(
-      `/api/movies/${movieId}?locationId=${encodeURIComponent(locationId)}`,
-    );
-    setDetail(data);
-  }, [movieId]);
+  const loadDetail = useCallback(
+    async (locationId: string) => {
+      const data = await readJson<MovieDetailResponse>(
+        `/api/movies/${movieId}?locationId=${encodeURIComponent(locationId)}`,
+      );
+      setDetail(data);
+    },
+    [movieId],
+  );
 
   useEffect(() => {
     void (async () => {
       try {
         setLoading(true);
+        setError(null);
         await loadLocations();
       } catch (nextError) {
         setError(
@@ -199,71 +220,74 @@ export function MovieDetailClient(input: {
 
   if (loading && !detail) {
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="text-sm text-slate-500">Loading movie detail...</p>
-      </div>
+      <Panel className="p-8" tone="soft">
+        <p className="text-sm text-[color:var(--foreground-muted)]">Loading movie detail...</p>
+      </Panel>
     );
   }
 
   if (!locations.length) {
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h2 className="text-2xl font-bold text-slate-900">Save a ZIP code first</h2>
-        <p className="mt-3 text-sm text-slate-600">
-          Movie detail pages depend on a saved location so CineCue can resolve nearby
-          theatres and showtimes.
-        </p>
-        <Link className="mt-4 inline-block font-semibold text-slate-900 underline" href="/dashboard">
-          Go to dashboard setup
-        </Link>
-      </div>
+      <EmptyState
+        action={
+          <ActionLink href="/dashboard" icon={<ArrowLeftIcon />} size="lg" variant="primary">
+            Go to dashboard setup
+          </ActionLink>
+        }
+        title="Save a ZIP code first"
+      >
+        Movie detail pages rely on a saved location so CineCue can resolve nearby theatres, showtimes, and the local status you actually care about.
+      </EmptyState>
     );
   }
 
   if (!detail) {
-    return <p className="text-sm text-rose-600">{error ?? "Movie detail unavailable."}</p>;
+    return <Notice tone="danger">{error ?? "Movie detail unavailable."}</Notice>;
   }
+
+  const runtimeLabel = formatRuntime(detail.movie.runtimeMinutes);
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-6 lg:flex-row">
-          <div className="h-72 w-48 shrink-0 overflow-hidden rounded-3xl bg-slate-100">
-            {detail.movie.posterUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                alt={detail.movie.title}
-                className="h-full w-full object-cover"
-                src={detail.movie.posterUrl}
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-slate-500">
-                No poster
-              </div>
-            )}
-          </div>
+      <Panel className="cine-enter overflow-hidden p-5 sm:p-7 lg:p-8">
+        <div className="grid gap-6 lg:grid-cols-[0.7fr_1.3fr]">
+          <PosterArt
+            className="mx-auto h-[26rem] w-full max-w-sm lg:mx-0 lg:h-[33rem]"
+            src={detail.movie.posterUrl}
+            title={detail.movie.title}
+          />
 
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                  Movie detail
-                </p>
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                  {detail.movie.title}
-                </h1>
-                <p className="mt-2 text-sm text-slate-500">
-                  {detail.movie.releaseYear ? `${detail.movie.releaseYear} · ` : ""}
-                  {detail.movie.releaseDate
-                    ? `Released ${formatDate(detail.movie.releaseDate)}`
-                    : "Release date TBD"}
-                  {detail.movie.runtimeMinutes ? ` · ${detail.movie.runtimeMinutes} min` : ""}
-                </p>
+          <div className="space-y-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="space-y-4">
+                <SectionHeading
+                  description={
+                    detail.movie.longDescription ??
+                    detail.movie.shortDescription ??
+                    "CineCue will watch this title's local theatrical arc as theatres and showtimes change."
+                  }
+                  eyebrow="Movie detail"
+                  title={detail.movie.title}
+                />
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <MetaPill>{detail.movie.releaseYear ?? "Year TBD"}</MetaPill>
+                  <MetaPill>
+                    {detail.movie.releaseDate
+                      ? `Released ${formatDate(detail.movie.releaseDate)}`
+                      : "Release date TBD"}
+                  </MetaPill>
+                  {runtimeLabel ? <MetaPill>{runtimeLabel}</MetaPill> : null}
+                  {detail.movie.subType ? <MetaPill>{detail.movie.subType}</MetaPill> : null}
+                </div>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <select
-                  className="h-11 rounded-2xl border border-slate-300 bg-white px-4 text-sm outline-none focus:border-slate-900"
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] xl:w-[21rem]">
+                <label className="sr-only" htmlFor="movie-location">
+                  Location
+                </label>
+                <SelectInput
+                  id="movie-location"
                   onChange={(event) => setSelectedLocationId(event.target.value)}
                   value={selectedLocationId}
                 >
@@ -272,150 +296,169 @@ export function MovieDetailClient(input: {
                       {location.label}
                     </option>
                   ))}
-                </select>
+                </SelectInput>
 
-                <button
-                  className={`h-11 rounded-2xl px-4 text-sm font-semibold transition ${
-                    detail.movie.isFollowed
-                      ? "border border-slate-300 text-slate-900 hover:border-slate-900"
-                      : "bg-slate-900 text-white hover:bg-slate-700"
-                  }`}
+                <ActionButton
                   disabled={busy}
-                  onClick={() => void handleToggleFollow()}
-                  type="button"
+                  onClick={() => {
+                    void handleToggleFollow();
+                  }}
+                  size="lg"
+                  variant={detail.movie.isFollowed ? "secondary" : "primary"}
                 >
                   {busy ? "Working..." : detail.movie.isFollowed ? "Unfollow" : "Follow"}
-                </button>
+                </ActionButton>
 
                 {detail.calendarExportUrl ? (
-                  <CalendarExportButton href={detail.calendarExportUrl} />
+                  <CalendarExportButton
+                    className="sm:col-span-2"
+                    href={detail.calendarExportUrl}
+                    size="lg"
+                  >
+                    Export showtimes
+                  </CalendarExportButton>
                 ) : null}
               </div>
             </div>
 
             {detail.movie.localStatus ? (
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <span
-                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone(detail.movie.localStatus.status)}`}
-                >
-                  {humanizeStatus(detail.movie.localStatus.status)}
-                </span>
-                <span className="text-sm text-slate-600">
-                  Next showing: {formatDateTime(detail.movie.localStatus.nextShowingAt)}
-                </span>
-                <span className="text-sm text-slate-600">
-                  Theatres: {detail.movie.localStatus.theatreCount}
-                </span>
-              </div>
+              <Panel className="p-5 sm:p-6" tone="soft">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <StatusBadge status={detail.movie.localStatus.status} />
+                      <MetaPill>
+                        {detail.movie.localStatus.theatreCount} theatre
+                        {detail.movie.localStatus.theatreCount === 1 ? "" : "s"}
+                      </MetaPill>
+                    </div>
+                    <p className="max-w-2xl text-sm leading-7 text-[color:var(--foreground-muted)]">
+                      Viewing showtimes for {currentLocation?.label ?? detail.location.label}. CineCue refreshes this local status as screenings and ticket availability shift.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <MetaPill>Next showing {formatDateTime(detail.movie.localStatus.nextShowingAt)}</MetaPill>
+                    <MetaPill>First seen {formatDateTime(detail.movie.localStatus.firstShowingAt)}</MetaPill>
+                    <MetaPill>Last showing {formatDateTime(detail.movie.localStatus.lastShowingAt)}</MetaPill>
+                    <MetaPill>Updated {formatDateTime(detail.movie.localStatus.statusChangedAt)}</MetaPill>
+                  </div>
+                </div>
+              </Panel>
             ) : (
-              <p className="mt-4 text-sm text-slate-600">
+              <Notice tone="neutral">
                 No local status row exists yet for this movie in the selected area.
-              </p>
+              </Notice>
             )}
-
-            {detail.movie.longDescription || detail.movie.shortDescription ? (
-              <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-700">
-                {detail.movie.longDescription ?? detail.movie.shortDescription}
-              </p>
-            ) : null}
-
-            {currentLocation ? (
-              <p className="mt-4 text-sm text-slate-500">
-                Viewing showtimes for {currentLocation.label}.
-              </p>
-            ) : null}
           </div>
         </div>
-      </section>
+      </Panel>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-slate-900">Next showings</h2>
-        <div className="mt-4 space-y-3">
-          {detail.movie.nextShowings.length ? (
-            detail.movie.nextShowings.map((showing) => (
-              <div
-                key={showing.showtimeId}
-                className="rounded-2xl border border-slate-200 p-4"
-              >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-semibold text-slate-900">{showing.theatre.name}</p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {formatDateTime(showing.startAtLocal)}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {[showing.theatre.address1, showing.theatre.city, showing.theatre.state]
-                        .filter(Boolean)
-                        .join(", ")}
-                    </p>
-                    {showing.qualities ? (
-                      <p className="mt-1 text-sm text-slate-500">
-                        Format: {showing.qualities}
-                      </p>
+      <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+        <Panel className="p-6 sm:p-8">
+          <SectionHeading
+            description="The next showings CineCue currently knows about in the selected area."
+            eyebrow="Showtimes"
+            title="Next showings"
+          />
+
+          <div className="mt-6 space-y-4">
+            {detail.movie.nextShowings.length ? (
+              detail.movie.nextShowings.map((showing) => (
+                <Panel key={showing.showtimeId} className="cine-hover-lift p-4 sm:p-5" tone="soft">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <p className="font-display text-2xl tracking-[-0.03em] text-[color:var(--foreground)]">
+                          {showing.theatre.name}
+                        </p>
+                        <p className="text-sm text-[color:var(--foreground-muted)]">
+                          {[showing.theatre.address1, showing.theatre.city, showing.theatre.state]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <MetaPill>{formatDateTime(showing.startAtLocal)}</MetaPill>
+                        {showing.qualities ? <MetaPill>{showing.qualities}</MetaPill> : null}
+                        {showing.isAdvanceTicket ? <MetaPill>Advance ticket</MetaPill> : null}
+                      </div>
+                    </div>
+
+                    {showing.ticketUrl ? (
+                      <ActionAnchor
+                        href={showing.ticketUrl}
+                        rel="noreferrer"
+                        size="sm"
+                        target="_blank"
+                        variant="primary"
+                      >
+                        Tickets
+                      </ActionAnchor>
                     ) : null}
                   </div>
+                </Panel>
+              ))
+            ) : (
+              <Notice tone="neutral">
+                No upcoming showtimes are currently stored for this movie in the selected area.
+              </Notice>
+            )}
+          </div>
+        </Panel>
 
-                  {showing.ticketUrl ? (
-                    <a
-                      className="inline-flex h-10 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700"
-                      href={showing.ticketUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      Tickets
-                    </a>
-                  ) : null}
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-sm text-slate-500">
-              No upcoming showtimes are currently stored for this movie in the selected area.
-            </p>
-          )}
-        </div>
-      </section>
+        <Panel className="p-6 sm:p-8" tone="soft">
+          <SectionHeading
+            description="Nearby theatres that are currently carrying this movie in your selected market."
+            eyebrow="Theatres"
+            title="Nearby theatres"
+          />
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-slate-900">
-          Nearby theatres listing this movie
-        </h2>
-        <div className="mt-4 space-y-3">
-          {detail.movie.nearbyTheatres.length ? (
-            detail.movie.nearbyTheatres.map((theatre) => (
-              <div key={theatre.theatreId} className="rounded-2xl border border-slate-200 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-semibold text-slate-900">{theatre.name}</p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {[theatre.address1, theatre.city, theatre.state, theatre.postalCode]
-                        .filter(Boolean)
-                        .join(", ")}
-                    </p>
-                    <p className="mt-2 text-sm text-slate-500">
-                      Next showing: {formatDateTime(theatre.nextShowingAt)} ·{" "}
-                      {theatre.upcomingShowtimeCount} upcoming showtime
-                      {theatre.upcomingShowtimeCount === 1 ? "" : "s"}
-                    </p>
+          <div className="mt-6 space-y-4">
+            {detail.movie.nearbyTheatres.length ? (
+              detail.movie.nearbyTheatres.map((theatre) => (
+                <Panel key={theatre.theatreId} className="cine-hover-lift p-4 sm:p-5">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <p className="font-display text-2xl tracking-[-0.03em] text-[color:var(--foreground)]">
+                          {theatre.name}
+                        </p>
+                        <p className="text-sm leading-6 text-[color:var(--foreground-muted)]">
+                          {[theatre.address1, theatre.city, theatre.state, theatre.postalCode]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <MetaPill>Next showing {formatDateTime(theatre.nextShowingAt)}</MetaPill>
+                        <MetaPill>
+                          {theatre.upcomingShowtimeCount} upcoming showtime
+                          {theatre.upcomingShowtimeCount === 1 ? "" : "s"}
+                        </MetaPill>
+                      </div>
+                    </div>
+
+                    <FavoriteTheatreButton
+                      initialFavorite={detail.favoriteTheatreIds.includes(theatre.theatreId)}
+                      locationId={detail.location.locationId}
+                      theatreId={theatre.theatreId}
+                    />
                   </div>
+                </Panel>
+              ))
+            ) : (
+              <Notice tone="neutral">
+                No nearby theatres are currently attached to this title in the selected area.
+              </Notice>
+            )}
+          </div>
+        </Panel>
+      </div>
 
-                  <FavoriteTheatreButton
-                    initialFavorite={detail.favoriteTheatreIds.includes(theatre.theatreId)}
-                    locationId={detail.location.locationId}
-                    theatreId={theatre.theatreId}
-                  />
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-sm text-slate-500">
-              No nearby theatres are currently attached to this title in the selected area.
-            </p>
-          )}
-        </div>
-      </section>
-
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      {error ? <Notice tone="danger">{error}</Notice> : null}
     </div>
   );
 }
