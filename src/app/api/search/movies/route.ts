@@ -4,6 +4,7 @@ import { BadRequestError, jsonFromError } from "@/lib/phase2/errors";
 import { resolveUserLocation } from "@/lib/phase2/locations";
 import { trackProductEvent } from "@/lib/phase6/analytics";
 import { searchMoviesForFollowFlowPhase6 } from "@/lib/phase6/search";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
   try {
@@ -17,6 +18,15 @@ export async function GET(request: Request) {
     }
 
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "search.movies",
+      subject: user.id,
+      limit: 30,
+      windowSeconds: 60,
+    });
+
     const location = await resolveUserLocation(user.id, locationId);
     const results = await searchMoviesForFollowFlowPhase6({
       userId: user.id,

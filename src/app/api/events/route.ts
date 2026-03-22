@@ -7,6 +7,7 @@ import {
   formatSseEvent,
   getLatestAvailabilityCursor,
 } from "@/lib/phase5/sse";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,15 @@ export async function GET(request: Request) {
     const locationId = url.searchParams.get("locationId");
     const user = await getOrCreateAppUser();
     const location = await resolveUserLocation(user.id, locationId);
+
+    await assertRateLimit({
+      request,
+      scope: "events.sse",
+      subject: `${user.id}:${location.locationId}`,
+      limit: 12,
+      windowSeconds: 60,
+    });
+
     const env = getServerEnv();
     const encoder = new TextEncoder();
 

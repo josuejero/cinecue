@@ -2,6 +2,9 @@
   "name": "cinecue",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0 <23"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,6 +12,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "smoke": "npm run lint && npm run typecheck && npm run test && npm run build",
     "worker": "tsx src/worker/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
@@ -20,7 +24,8 @@
     "phase4:replay-location": "tsx src/scripts/phase4-replay-location.ts",
     "phase4:replay-movie": "tsx src/scripts/phase4-replay-movie.ts",
     "phase5:push": "tsx src/scripts/phase5-push.ts",
-    "phase6:ops-report": "tsx src/scripts/phase6-ops-report.ts"
+    "phase6:ops-report": "tsx src/scripts/phase6-ops-report.ts",
+    "vapid:generate": "web-push generate-vapid-keys"
   },
   "dependencies": {
     "bullmq": "5.71.0",

@@ -8,10 +8,20 @@ import {
   listUserSavedLocations,
   setDefaultSavedLocation,
 } from "@/lib/phase6/locations";
+import { assertRateLimit } from "@/lib/rate-limit";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "locations.list",
+      subject: user.id,
+      limit: 60,
+      windowSeconds: 60,
+    });
+
     const locations = await listUserSavedLocations(user.id);
 
     return NextResponse.json({ locations });
@@ -32,6 +42,15 @@ export async function POST(request: Request) {
       makeDefault: boolean;
     }>;
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "locations.create",
+      subject: user.id,
+      limit: 20,
+      windowSeconds: 60,
+    });
+
     const locationId = await createSavedLocationForUser({
       userId: user.id,
       zip: body.zip ?? null,
@@ -94,6 +113,15 @@ export async function PATCH(request: Request) {
     }
 
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "locations.update",
+      subject: user.id,
+      limit: 20,
+      windowSeconds: 60,
+    });
+
     await setDefaultSavedLocation(user.id, body.locationId);
     await invalidateDashboardCacheForUser(user.id);
     await trackProductEvent({
@@ -106,10 +134,7 @@ export async function PATCH(request: Request) {
     const locations = await listUserSavedLocations(user.id);
     const location = locations.find((item) => item.locationId === body.locationId) ?? null;
 
-    return NextResponse.json({
-      location,
-      locations,
-    });
+    return NextResponse.json({ location, locations });
   } catch (error) {
     return jsonFromError(error);
   }

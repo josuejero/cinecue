@@ -10,6 +10,7 @@ import {
 import { normalizeTitle } from "@/lib/normalize";
 import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { NotFoundError } from "./errors";
+import { resolvePosterUrl } from "@/lib/media-cloud";
 import type { MovieAvailabilityStatus } from "./read-model";
 
 const STATUS_ORDER: MovieAvailabilityStatus[] = [
@@ -109,7 +110,7 @@ export async function loadDashboard(userId: string, locationId: string) {
       title: row.title,
       releaseYear: row.releaseYear ?? null,
       releaseDate: row.releaseDate ?? null,
-      posterUrl: row.posterUrl ?? null,
+      posterUrl: resolvePosterUrl(row.posterUrl ?? null),
       shortDescription: row.shortDescription ?? null,
       followedAt: row.followedAt,
       nextShowingAt: row.nextShowingAt ?? null,
@@ -196,7 +197,7 @@ export async function searchMoviesForFollowFlow(input: {
     title: row.title,
     releaseYear: row.releaseYear ?? null,
     releaseDate: row.releaseDate ?? null,
-    posterUrl: row.posterUrl ?? null,
+    posterUrl: resolvePosterUrl(row.posterUrl ?? null),
     shortDescription: row.shortDescription ?? null,
     isFollowed: followedSet.has(row.movieId),
   }));
@@ -230,6 +231,7 @@ export async function loadMovieDetail(input: {
   if (!movie) {
     throw new NotFoundError("Movie not found.");
   }
+  const normalizedPosterUrl = resolvePosterUrl(movie.posterUrl ?? null);
 
   const [status] = await db
     .select({
@@ -328,6 +330,7 @@ export async function loadMovieDetail(input: {
   return {
     movie: {
       ...movie,
+      posterUrl: normalizedPosterUrl,
       isFollowed: Boolean(follow),
       localStatus: status
         ? {
@@ -454,5 +457,8 @@ export async function listAvailabilityChanges(input: {
     .orderBy(desc(availabilityChangeEvents.changedAt))
     .limit(limit);
 
-  return rows;
+  return rows.map((row) => ({
+    ...row,
+    posterUrl: resolvePosterUrl(row.posterUrl ?? null),
+  }));
 }

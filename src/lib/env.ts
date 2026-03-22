@@ -22,6 +22,7 @@ const serverEnvSchema = z.object({
 
   GRACENOTE_BASE_URL: z.string().url().default("http://data.tmsapi.com/v1.1"),
   GRACENOTE_API_KEY: z.string().min(1).optional(),
+  GRACENOTE_MEDIA_CLOUD_BASE_URL: z.string().url().default("https://developer.tmsimg.com"),
 
   TMDB_BASE_URL: z.string().url().default("https://api.themoviedb.org/3"),
   TMDB_READ_ACCESS_TOKEN: z.string().min(1).optional(),

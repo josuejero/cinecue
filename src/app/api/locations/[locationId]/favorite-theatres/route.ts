@@ -8,6 +8,7 @@ import {
   listFavoriteTheatreIds,
   removeFavoriteTheatre,
 } from "@/lib/phase6/locations";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   request: Request,
@@ -22,6 +23,15 @@ export async function POST(
     }
 
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "favorite-theatres.create",
+      subject: user.id,
+      limit: 30,
+      windowSeconds: 60,
+    });
+
     await addFavoriteTheatre({
       userId: user.id,
       locationId,
@@ -58,6 +68,15 @@ export async function DELETE(
     }
 
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "favorite-theatres.delete",
+      subject: user.id,
+      limit: 30,
+      windowSeconds: 60,
+    });
+
     await removeFavoriteTheatre({
       userId: user.id,
       locationId,

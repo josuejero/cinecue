@@ -2,12 +2,21 @@ import { NextResponse } from "next/server";
 import { getOrCreateAppUser } from "@/lib/phase2/auth";
 import { jsonFromError } from "@/lib/phase2/errors";
 import { getPushPublicKey, isPushConfigured } from "@/lib/phase5/push";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    await getOrCreateAppUser();
+    const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "notifications.push.public-key",
+      subject: user.id,
+      limit: 30,
+      windowSeconds: 60,
+    });
 
     if (!isPushConfigured()) {
       return NextResponse.json(

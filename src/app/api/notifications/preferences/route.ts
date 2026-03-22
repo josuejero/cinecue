@@ -7,12 +7,22 @@ import {
   isEmailTransportConfigured,
   updateNotificationPreferences,
 } from "@/lib/phase5/preferences";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "notifications.preferences.get",
+      subject: user.id,
+      limit: 30,
+      windowSeconds: 60,
+    });
+
     const preferences = await getOrCreateNotificationPreferences(user.id);
 
     return NextResponse.json({
@@ -29,6 +39,15 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "notifications.preferences.patch",
+      subject: user.id,
+      limit: 20,
+      windowSeconds: 60,
+    });
+
     const body = (await request.json().catch(() => ({}))) as Partial<{
       emailEnabled: boolean;
       pushEnabled: boolean;

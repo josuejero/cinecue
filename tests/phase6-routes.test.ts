@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TooManyRequestsError } from "@/lib/phase2/errors";
 
 const getOrCreateAppUser = vi.fn();
 const resolveUserLocation = vi.fn();
@@ -20,6 +21,7 @@ const listFavoriteTheatreIds = vi.fn();
 const removeFavoriteTheatre = vi.fn();
 const searchMoviesForFollowFlowPhase6 = vi.fn();
 const getDb = vi.fn();
+const assertRateLimit = vi.fn();
 
 vi.mock("@/lib/phase2/auth", () => ({
   getOrCreateAppUser: () => getOrCreateAppUser(),
@@ -66,6 +68,10 @@ vi.mock("@/lib/phase6/search", () => ({
   searchMoviesForFollowFlowPhase6: (...args: unknown[]) => searchMoviesForFollowFlowPhase6(...args),
 }));
 
+vi.mock("@/lib/rate-limit", () => ({
+  assertRateLimit: (...args: unknown[]) => assertRateLimit(...args),
+}));
+
 vi.mock("@/db/client", () => ({
   getDb: () => getDb(),
 }));
@@ -73,7 +79,10 @@ vi.mock("@/db/client", () => ({
 import { GET as dashboardGet } from "@/app/api/dashboard/route";
 import { POST as followPost } from "@/app/api/follows/route";
 import { DELETE as followDelete } from "@/app/api/follows/[movieId]/route";
-import { POST as favoritePost, DELETE as favoriteDelete } from "@/app/api/locations/[locationId]/favorite-theatres/route";
+import {
+  POST as favoritePost,
+  DELETE as favoriteDelete,
+} from "@/app/api/locations/[locationId]/favorite-theatres/route";
 import { POST as locationsPost, PATCH as locationsPatch } from "@/app/api/locations/route";
 import { GET as searchGet } from "@/app/api/search/movies/route";
 
@@ -128,9 +137,10 @@ describe("phase 6 routes", () => {
     markLocationUsed.mockResolvedValue(undefined);
     invalidateDashboardCacheForUser.mockResolvedValue(1);
     trackProductEvent.mockResolvedValue(undefined);
+    assertRateLimit.mockResolvedValue({ key: "rate:test", count: 1, remaining: 59 });
   });
 
-  it("returns cached dashboard payloads and records a dashboard_view event", async () => {
+  it("returns cached dashboard payloads, records a dashboard_view event, and rate limits by user", async () => {
     const cached = { location, totalFollows: 2, sections: [] };
     readDashboardCache.mockResolvedValueOnce(cached);
 
@@ -139,6 +149,14 @@ describe("phase 6 routes", () => {
     );
 
     await expect(response.json()).resolves.toEqual(cached);
+    expect(assertRateLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: "dashboard",
+        subject: user.id,
+        limit: 60,
+        windowSeconds: 60,
+      }),
+    );
     expect(loadDashboard).not.toHaveBeenCalled();
     expect(trackProductEvent).toHaveBeenCalledWith({
       userId: user.id,
@@ -146,6 +164,23 @@ describe("phase 6 routes", () => {
       eventName: "dashboard_view",
       properties: { refresh: false, cacheHit: true },
     });
+  });
+
+  it("returns 429 when dashboard requests are throttled", async () => {
+    assertRateLimit.mockRejectedValueOnce(
+      new TooManyRequestsError("Too many requests. Please try again shortly.", 17),
+    );
+
+    const response = await dashboardGet(
+      new Request("http://localhost/api/dashboard?locationId=loc_1"),
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("17");
+    await expect(response.json()).resolves.toEqual({
+      error: "Too many requests. Please try again shortly.",
+    });
+    expect(loadDashboard).not.toHaveBeenCalled();
   });
 
   it("bypasses cache on refresh and refreshes followed movie statuses", async () => {

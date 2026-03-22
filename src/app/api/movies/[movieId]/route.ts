@@ -5,6 +5,7 @@ import { resolveUserLocation } from "@/lib/phase2/locations";
 import { loadMovieDetail } from "@/lib/phase2/queries";
 import { refreshMovieLocalStatusForLocation } from "@/lib/phase2/read-model";
 import { listFavoriteTheatreIds, markLocationUsed } from "@/lib/phase6/locations";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 export async function GET(
   request: Request,
@@ -16,6 +17,15 @@ export async function GET(
     const locationId = url.searchParams.get("locationId");
     const refresh = url.searchParams.get("refresh") === "true";
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "movies.detail",
+      subject: user.id,
+      limit: 60,
+      windowSeconds: 60,
+    });
+
     const location = await resolveUserLocation(user.id, locationId);
 
     await markLocationUsed(user.id, location.locationId);

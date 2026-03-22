@@ -6,6 +6,7 @@ import {
   deactivateWebPushSubscription,
   upsertWebPushSubscription,
 } from "@/lib/phase5/preferences";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 type PushSubscriptionInput = {
   endpoint?: string;
@@ -25,6 +26,15 @@ export async function POST(request: Request) {
     }
 
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "notifications.push.subscribe",
+      subject: user.id,
+      limit: 20,
+      windowSeconds: 60,
+    });
+
     const body = (await request.json().catch(() => ({}))) as PushSubscriptionInput;
 
     if (!body.endpoint || !body.keys?.p256dh || !body.keys?.auth) {
@@ -53,6 +63,15 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "notifications.push.unsubscribe",
+      subject: user.id,
+      limit: 20,
+      windowSeconds: 60,
+    });
+
     const body = (await request.json().catch(() => ({}))) as {
       endpoint?: string;
     };

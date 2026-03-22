@@ -10,6 +10,7 @@ import {
   writeDashboardCache,
 } from "@/lib/phase6/dashboard-cache";
 import { markLocationUsed } from "@/lib/phase6/locations";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
   try {
@@ -17,6 +18,15 @@ export async function GET(request: Request) {
     const locationId = url.searchParams.get("locationId");
     const refresh = url.searchParams.get("refresh") === "true";
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "dashboard",
+      subject: user.id,
+      limit: 60,
+      windowSeconds: 60,
+    });
+
     const location = await resolveUserLocation(user.id, locationId);
 
     await markLocationUsed(user.id, location.locationId);

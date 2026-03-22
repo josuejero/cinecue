@@ -7,6 +7,7 @@ import { jsonFromError } from "@/lib/phase2/errors";
 import { resolveUserLocation } from "@/lib/phase2/locations";
 import { trackProductEvent } from "@/lib/phase6/analytics";
 import { invalidateDashboardCacheForUser } from "@/lib/phase6/dashboard-cache";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 export async function DELETE(
   request: Request,
@@ -16,6 +17,15 @@ export async function DELETE(
     const { movieId } = await params;
     const locationId = new URL(request.url).searchParams.get("locationId");
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "follows.delete",
+      subject: user.id,
+      limit: 30,
+      windowSeconds: 60,
+    });
+
     const location = await resolveUserLocation(user.id, locationId);
     const db = getDb();
 

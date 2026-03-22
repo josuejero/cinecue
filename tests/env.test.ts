@@ -1,5 +1,5 @@
-import { parseServerEnv } from "@/lib/env";
 import { describe, expect, it } from "vitest";
+import { parseServerEnv } from "@/lib/env";
 
 describe("parseServerEnv", () => {
   it("accepts the minimum phase 4 env contract", () => {
@@ -14,6 +14,7 @@ describe("parseServerEnv", () => {
     expect(env.DATABASE_URL).toContain("cinecue");
     expect(env.APP_BASE_URL).toBe("http://localhost:3000");
     expect(env.SMTP_HOST).toBeUndefined();
+    expect(env.GRACENOTE_MEDIA_CLOUD_BASE_URL).toBe("https://developer.tmsimg.com");
     expect(env.PHASE4_ENABLE_SCHEDULERS).toBe("true");
     expect(env.PHASE4_SYNC_INTERVAL_MINUTES).toBe(15);
     expect(env.PHASE4_SYNC_NUM_DAYS).toBe(14);

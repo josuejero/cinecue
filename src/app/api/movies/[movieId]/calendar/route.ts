@@ -6,6 +6,7 @@ import {
   buildCalendarFile,
   listUpcomingShowingsForMovieAndLocation,
 } from "@/lib/phase6/calendar";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 export async function GET(
   request: Request,
@@ -15,6 +16,15 @@ export async function GET(
     const { movieId } = await params;
     const locationId = new URL(request.url).searchParams.get("locationId");
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "movies.calendar",
+      subject: user.id,
+      limit: 20,
+      windowSeconds: 60,
+    });
+
     const location = await resolveUserLocation(user.id, locationId);
     const showings = await listUpcomingShowingsForMovieAndLocation({
       movieId,

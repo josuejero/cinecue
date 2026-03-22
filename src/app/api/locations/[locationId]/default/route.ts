@@ -4,14 +4,23 @@ import { jsonFromError } from "@/lib/phase2/errors";
 import { trackProductEvent } from "@/lib/phase6/analytics";
 import { invalidateDashboardCacheForUser } from "@/lib/phase6/dashboard-cache";
 import { listUserSavedLocations, setDefaultSavedLocation } from "@/lib/phase6/locations";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 export async function PATCH(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ locationId: string }> },
 ) {
   try {
     const { locationId } = await params;
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "locations.default",
+      subject: user.id,
+      limit: 20,
+      windowSeconds: 60,
+    });
 
     await setDefaultSavedLocation(user.id, locationId);
     await invalidateDashboardCacheForUser(user.id);

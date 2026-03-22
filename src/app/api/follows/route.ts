@@ -10,6 +10,7 @@ import { loadMovieDetail } from "@/lib/phase2/queries";
 import { refreshMovieLocalStatusForLocation } from "@/lib/phase2/read-model";
 import { trackProductEvent } from "@/lib/phase6/analytics";
 import { invalidateDashboardCacheForUser } from "@/lib/phase6/dashboard-cache";
+import { assertRateLimit } from "@/lib/rate-limit";
 
 function createId() {
   return crypto.randomUUID();
@@ -28,6 +29,15 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const user = await getOrCreateAppUser();
+
+    await assertRateLimit({
+      request,
+      scope: "follows.create",
+      subject: user.id,
+      limit: 30,
+      windowSeconds: 60,
+    });
+
     const location = await resolveUserLocation(user.id, body.locationId ?? null);
 
     const [movie] = await db

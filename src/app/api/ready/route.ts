@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { checkDb } from "@/db/client";
 import { getServerEnv } from "@/lib/env";
-import { getPhase4OperationalSnapshot } from "@/lib/phase4/operations";
 import { isEmailTransportConfigured } from "@/lib/phase3/notifications";
+import { isPushConfigured } from "@/lib/phase5/push";
+import { getPhase6OperationalSnapshot } from "@/lib/phase6/ops";
 import { getRedis } from "@/lib/redis";
+
+function hasConfiguredValue(value: string | undefined | null) {
+  const trimmed = value?.trim();
+  return Boolean(trimmed && !trimmed.startsWith("REPLACE_WITH_"));
+}
 
 export async function GET() {
   const env = getServerEnv();
@@ -11,14 +17,18 @@ export async function GET() {
   const checks = {
     database: false,
     redis: false,
-    authSecretConfigured: Boolean(env.AUTH_SECRET),
-    gracenoteConfigured: Boolean(env.GRACENOTE_API_KEY),
-    tmdbConfigured: Boolean(env.TMDB_READ_ACCESS_TOKEN || env.TMDB_API_KEY),
+    authSecretConfigured: hasConfiguredValue(env.AUTH_SECRET),
+    gracenoteConfigured: hasConfiguredValue(env.GRACENOTE_API_KEY),
+    tmdbConfigured:
+      hasConfiguredValue(env.TMDB_READ_ACCESS_TOKEN) || hasConfiguredValue(env.TMDB_API_KEY),
     smtpConfigured: isEmailTransportConfigured(),
+    pushConfigured: isPushConfigured(),
     schedulersEnabled: env.PHASE4_ENABLE_SCHEDULERS !== "false",
     staleLocationsUnderThreshold: true,
     staleLocationCount: 0,
   };
+
+  let operations: Awaited<ReturnType<typeof getPhase6OperationalSnapshot>> | null = null;
 
   try {
     await checkDb();
@@ -35,24 +45,26 @@ export async function GET() {
   }
 
   try {
-    const ops = await getPhase4OperationalSnapshot();
-    checks.staleLocationCount = ops.staleLocationCount;
-    checks.staleLocationsUnderThreshold = ops.staleLocationCount === 0;
+    operations = await getPhase6OperationalSnapshot();
+    checks.staleLocationCount = operations.performance.staleLocationCount;
+    checks.staleLocationsUnderThreshold = operations.performance.staleLocationCount === 0;
   } catch (error) {
-    console.error("Phase 4 ops readiness check failed:", error);
+    console.error("Phase 6 ops readiness check failed:", error);
     checks.staleLocationsUnderThreshold = false;
   }
 
   const ok =
     checks.database &&
     checks.redis &&
+    checks.authSecretConfigured &&
     checks.staleLocationsUnderThreshold;
 
   return NextResponse.json(
     {
       ok,
-      phase: 4,
+      phase: 6,
       checks,
+      operations,
       timestamp: new Date().toISOString(),
     },
     { status: ok ? 200 : 503 },

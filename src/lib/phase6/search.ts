@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { movies, userMovieFollows } from "@/db/schema";
 import { normalizeTitle } from "@/lib/normalize";
+import { resolvePosterUrl } from "@/lib/media-cloud";
 
 export function scoreMovieSearchCandidate(
   normalizedTitle: string,
@@ -96,7 +97,7 @@ export async function searchMoviesForFollowFlowPhase6(input: {
     title: row.title,
     releaseYear: row.releaseYear ?? null,
     releaseDate: row.releaseDate ?? null,
-    posterUrl: row.posterUrl ?? null,
+    posterUrl: resolvePosterUrl(row.posterUrl ?? null),
     shortDescription: row.shortDescription ?? null,
     isFollowed: followedSet.has(row.movieId),
   }));
