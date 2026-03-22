@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { InstallAppButton } from "@/components/install-app-button";
 import { readJson } from "@/lib/phase3/client";
 import {
   describeAvailabilityChange,
@@ -96,6 +97,19 @@ function statusTone(status: string) {
   }
 }
 
+function liveTone(state: "idle" | "connecting" | "connected" | "reconnecting") {
+  switch (state) {
+    case "connected":
+      return "bg-emerald-100 text-emerald-800";
+    case "reconnecting":
+      return "bg-amber-100 text-amber-800";
+    case "connecting":
+      return "bg-blue-100 text-blue-800";
+    default:
+      return "bg-slate-200 text-slate-700";
+  }
+}
+
 function StatusPill({ status }: { status: string }) {
   return (
     <span
@@ -119,11 +133,16 @@ export function DashboardClient() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [busyMovieIds, setBusyMovieIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [liveState, setLiveState] = useState<
+    "idle" | "connecting" | "connected" | "reconnecting"
+  >("idle");
+  const [lastLiveUpdate, setLastLiveUpdate] = useState<string | null>(null);
+  const searchQueryRef = useRef(searchQuery);
 
   const currentLocation =
     locations.find((location) => location.locationId === selectedLocationId) ?? null;
 
-  async function loadLocations(preferredLocationId?: string | null) {
+  const loadLocations = useCallback(async (preferredLocationId?: string | null) => {
     const data = await readJson<LocationsResponse>("/api/locations");
     setLocations(data.locations);
 
@@ -131,7 +150,7 @@ export function DashboardClient() {
       setSelectedLocationId("");
       setDashboard(null);
       setChanges([]);
-      return;
+      return "";
     }
 
     const explicit = preferredLocationId
@@ -142,9 +161,10 @@ export function DashboardClient() {
       explicit ?? data.locations.find((location) => location.isDefault) ?? data.locations[0];
 
     setSelectedLocationId(nextLocation.locationId);
-  }
+    return nextLocation.locationId;
+  }, []);
 
-  async function loadDashboardBundle(locationId: string) {
+  const loadDashboardBundle = useCallback(async (locationId: string) => {
     const [dashboardData, changeData] = await Promise.all([
       readJson<DashboardResponse>(
         `/api/dashboard?locationId=${encodeURIComponent(locationId)}`,
@@ -156,9 +176,9 @@ export function DashboardClient() {
 
     setDashboard(dashboardData);
     setChanges(changeData.changes);
-  }
+  }, []);
 
-  async function runSearch(query: string, locationId: string) {
+  const runSearch = useCallback(async (query: string, locationId: string) => {
     const trimmed = query.trim();
 
     if (trimmed.length < 2) {
@@ -176,15 +196,23 @@ export function DashboardClient() {
     } finally {
       setSearchLoading(false);
     }
-  }
+  }, []);
 
-  async function refreshAll(locationId: string, query = searchQuery) {
-    await loadDashboardBundle(locationId);
+  const refreshAll = useCallback(
+    async (locationId: string, query?: string) => {
+      const nextQuery = query ?? searchQueryRef.current;
+      await loadDashboardBundle(locationId);
 
-    if (query.trim().length >= 2) {
-      await runSearch(query, locationId);
-    }
-  }
+      if (nextQuery.trim().length >= 2) {
+        await runSearch(nextQuery, locationId);
+      }
+    },
+    [loadDashboardBundle, runSearch],
+  );
+
+  useEffect(() => {
+    searchQueryRef.current = searchQuery;
+  }, [searchQuery]);
 
   useEffect(() => {
     void (async () => {
@@ -199,10 +227,11 @@ export function DashboardClient() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [loadLocations]);
 
   useEffect(() => {
     if (!selectedLocationId) {
+      setLiveState("idle");
       return;
     }
 
@@ -219,7 +248,7 @@ export function DashboardClient() {
         setLoading(false);
       }
     })();
-  }, [selectedLocationId]);
+  }, [loadDashboardBundle, selectedLocationId]);
 
   useEffect(() => {
     if (!selectedLocationId) {
@@ -239,7 +268,46 @@ export function DashboardClient() {
     }, 250);
 
     return () => window.clearTimeout(timeoutId);
-  }, [searchQuery, selectedLocationId]);
+  }, [runSearch, searchQuery, selectedLocationId]);
+
+  useEffect(() => {
+    if (!selectedLocationId) {
+      return;
+    }
+
+    setLiveState("connecting");
+
+    const source = new EventSource(
+      `/api/events?locationId=${encodeURIComponent(selectedLocationId)}`,
+    );
+
+    const onConnected = () => {
+      setLiveState("connected");
+    };
+
+    const onRefresh = () => {
+      setLiveState("connected");
+      setLastLiveUpdate(new Date().toISOString());
+      void refreshAll(selectedLocationId).catch((nextError) => {
+        setError(
+          nextError instanceof Error ? nextError.message : "Failed to refresh dashboard.",
+        );
+      });
+    };
+
+    source.addEventListener("connected", onConnected);
+    source.addEventListener("dashboard-refresh", onRefresh);
+    source.onerror = () => {
+      setLiveState("reconnecting");
+    };
+
+    return () => {
+      source.removeEventListener("connected", onConnected);
+      source.removeEventListener("dashboard-refresh", onRefresh);
+      source.close();
+      setLiveState("idle");
+    };
+  }, [refreshAll, selectedLocationId]);
 
   async function handleSaveZip(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -329,7 +397,7 @@ export function DashboardClient() {
           <p className="mt-3 max-w-2xl text-sm text-slate-600">
             CineCue is built around followed movies and local availability changes. Your
             first saved ZIP becomes the default area for dashboard reads, movie detail
-            pages, and email alerts.
+            pages, live updates, and notifications.
           </p>
 
           <form className="mt-6 flex flex-col gap-3 sm:flex-row" onSubmit={handleSaveZip}>
@@ -354,13 +422,13 @@ export function DashboardClient() {
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <h3 className="text-lg font-semibold text-slate-900">What Phase 3 covers</h3>
+          <h3 className="text-lg font-semibold text-slate-900">What Phase 5 adds</h3>
           <ul className="mt-4 space-y-2 text-sm text-slate-600">
-            <li>- Saved ZIP onboarding</li>
-            <li>- Search and follow flow</li>
-            <li>- Dashboard grouped by local status</li>
-            <li>- Movie detail pages with nearby theatres and next showings</li>
-            <li>- Email-first alert controls</li>
+            <li>- Live in-session dashboard refresh</li>
+            <li>- Browser push enrollment</li>
+            <li>- Installable app metadata and icons</li>
+            <li>- Offline fallback page</li>
+            <li>- Per-alert controls across email and push</li>
           </ul>
         </section>
 
@@ -387,6 +455,24 @@ export function DashboardClient() {
                   : currentLocation?.normalizedKey}{" "}
                 · {currentLocation?.radiusMiles} mi radius
               </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                <span
+                  className={`inline-flex rounded-full px-3 py-1 font-medium ${liveTone(liveState)}`}
+                >
+                  {liveState === "connected"
+                    ? "Live updates on"
+                    : liveState === "reconnecting"
+                      ? "Reconnecting live updates"
+                      : liveState === "connecting"
+                        ? "Connecting live updates"
+                        : "Live updates idle"}
+                </span>
+                {lastLiveUpdate ? (
+                  <span className="text-slate-500">
+                    Last refresh: {formatDateTime(lastLiveUpdate)}
+                  </span>
+                ) : null}
+              </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -405,6 +491,7 @@ export function DashboardClient() {
                   </option>
                 ))}
               </select>
+              <InstallAppButton className="h-11 rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-slate-900 disabled:cursor-not-allowed disabled:opacity-60" />
             </div>
           </div>
 
@@ -597,7 +684,7 @@ export function DashboardClient() {
             <div className="mt-5 rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-600">
               No followed titles have local availability in this view yet. That is a valid
               state. Keep following upcoming movies and use the notifications page to turn
-              on email alerts for the first local schedule change.
+              on alerts for the first local schedule change.
             </div>
           )}
         </section>

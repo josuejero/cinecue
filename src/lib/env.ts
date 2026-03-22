@@ -43,6 +43,15 @@ const serverEnvSchema = z.object({
   PHASE4_STALE_AFTER_MINUTES: z.coerce.number().int().positive().default(90),
   PHASE4_FINAL_SHOWING_SOON_HOURS: z.coerce.number().int().positive().default(24),
   PHASE4_SYNC_COUNTRY: z.enum(["USA", "CAN"]).default("USA"),
+
+  WEB_PUSH_VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+  WEB_PUSH_VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+  WEB_PUSH_SUBJECT: z.string().min(1).optional(),
+
+  PHASE5_PUSH_INTERVAL_MINUTES: z.coerce.number().int().positive().default(1),
+  PHASE5_PUSH_BATCH_SIZE: z.coerce.number().int().positive().default(100),
+  PHASE5_SSE_HEARTBEAT_MS: z.coerce.number().int().positive().default(15_000),
+  PHASE5_SSE_POLL_MS: z.coerce.number().int().positive().default(15_000),
 });
 
 export function parseServerEnv(input: Record<string, string | undefined>) {

@@ -39,6 +39,9 @@ yarn-error.log*
 repomix-output.xml
 archives/**
 
+# version control
+.git/
+
 # Drizzle migration metadata
 drizzle/meta/**
 

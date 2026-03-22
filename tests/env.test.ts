@@ -28,6 +28,11 @@ describe("parseServerEnv", () => {
     expect(env.PHASE4_STALE_AFTER_MINUTES).toBe(90);
     expect(env.PHASE4_FINAL_SHOWING_SOON_HOURS).toBe(24);
     expect(env.PHASE4_SYNC_COUNTRY).toBe("USA");
+    expect(env.WEB_PUSH_VAPID_PUBLIC_KEY).toBeUndefined();
+    expect(env.PHASE5_PUSH_INTERVAL_MINUTES).toBe(1);
+    expect(env.PHASE5_PUSH_BATCH_SIZE).toBe(100);
+    expect(env.PHASE5_SSE_HEARTBEAT_MS).toBe(15_000);
+    expect(env.PHASE5_SSE_POLL_MS).toBe(15_000);
   });
 
   it("parses optional SMTP env vars when provided", () => {

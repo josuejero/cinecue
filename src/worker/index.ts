@@ -2,6 +2,7 @@ import { Job, UnrecoverableError, Worker } from "bullmq";
 import { getServerEnv } from "@/lib/env";
 import { syncZipPhaseOne } from "@/lib/phase1/sync";
 import { processPendingEmailNotifications } from "@/lib/phase3/notifications";
+import { processPendingPushNotifications } from "@/lib/phase5/push";
 import { writeErrorLog, writeLog } from "@/lib/phase4/logging";
 import { runTrackedWorkerJob } from "@/lib/phase4/operations";
 import {
@@ -219,6 +220,23 @@ const phase4NotificationWorker = new Worker(
               locationId:
                 typeof job.data?.locationId === "string" ? job.data.locationId : null,
               limit: Number(job.data?.limit ?? env.PHASE4_NOTIFICATION_BATCH_SIZE),
+              dryRun: Boolean(job.data?.dryRun),
+            }),
+        );
+
+      case "send-push-notifications":
+        return runTrackedWorkerJob(
+          trackingForJob(
+            PHASE4_NOTIFICATION_QUEUE,
+            job,
+            typeof job.data?.locationId === "string" ? job.data.locationId : null,
+            `send-push-notifications:${job.data?.locationId ?? "all"}`,
+          ),
+          async () =>
+            processPendingPushNotifications({
+              locationId:
+                typeof job.data?.locationId === "string" ? job.data.locationId : null,
+              limit: Number(job.data?.limit ?? env.PHASE5_PUSH_BATCH_SIZE),
               dryRun: Boolean(job.data?.dryRun),
             }),
         );

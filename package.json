@@ -18,7 +18,8 @@
     "phase4:schedulers": "tsx src/scripts/phase4-schedulers.ts",
     "phase4:sync-active": "tsx src/scripts/phase4-sync-active.ts",
     "phase4:replay-location": "tsx src/scripts/phase4-replay-location.ts",
-    "phase4:replay-movie": "tsx src/scripts/phase4-replay-movie.ts"
+    "phase4:replay-movie": "tsx src/scripts/phase4-replay-movie.ts",
+    "phase5:push": "tsx src/scripts/phase5-push.ts"
   },
   "dependencies": {
     "bullmq": "5.71.0",
@@ -31,6 +32,7 @@
     "pg": "8.20.0",
     "react": "19.1.1",
     "react-dom": "19.1.1",
+    "web-push": "3.6.7",
     "zod": "4.3.6"
   },
   "devDependencies": {

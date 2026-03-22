@@ -14,7 +14,9 @@ export type Phase4SyncJobName =
   | "replay-location"
   | "replay-movie";
 
-export type Phase4NotificationJobName = "send-email-notifications";
+export type Phase4NotificationJobName =
+  | "send-email-notifications"
+  | "send-push-notifications";
 
 const DEFAULT_JOB_OPTIONS = {
   attempts: 3,
@@ -105,6 +107,22 @@ export async function upsertPhase4Schedulers() {
     },
   );
 
+  await notificationQueue.upsertJobScheduler(
+    "phase5:send-push-notifications",
+    { every: env.PHASE5_PUSH_INTERVAL_MINUTES * 60_000 },
+    {
+      name: "send-push-notifications",
+      data: {
+        limit: env.PHASE5_PUSH_BATCH_SIZE,
+      },
+      opts: {
+        attempts: 1,
+        removeOnComplete: 100,
+        removeOnFail: 1_000,
+      },
+    },
+  );
+
   await syncQueue.upsertJobScheduler(
     "phase4:sync-future-releases",
     { every: env.PHASE4_FUTURE_RELEASES_INTERVAL_MINUTES * 60_000 },
@@ -144,6 +162,7 @@ export async function upsertPhase4Schedulers() {
     schedulers: [
       "phase4:sync-active-locations",
       "phase4:send-email-notifications",
+      "phase5:send-push-notifications",
       "phase4:sync-future-releases",
       "phase4:cleanup-phase4-data",
     ],
@@ -187,6 +206,26 @@ export async function enqueueNotificationProcessing(input?: {
     {
       deduplication: {
         id: `send-email-notifications:${input?.locationId ?? "all"}`,
+      },
+    },
+  );
+}
+
+export async function enqueuePushNotificationProcessing(input?: {
+  locationId?: string | null;
+  reason?: string;
+  limit?: number;
+}) {
+  return getPhase4NotificationQueue().add(
+    "send-push-notifications",
+    {
+      locationId: input?.locationId ?? null,
+      reason: input?.reason ?? "manual",
+      limit: input?.limit ?? null,
+    },
+    {
+      deduplication: {
+        id: `send-push-notifications:${input?.locationId ?? "all"}`,
       },
     },
   );

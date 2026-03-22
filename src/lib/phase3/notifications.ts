@@ -12,6 +12,10 @@ import {
   userNotificationPreferences,
 } from "@/db/schema";
 import { getServerEnv } from "@/lib/env";
+import {
+  applyNotificationPreferenceDefaults,
+  type NotificationPreferenceShape,
+} from "@/lib/phase5/preferences";
 import type { MovieAvailabilityStatus } from "@/lib/phase2/read-model";
 
 export type NotificationKind =
@@ -19,51 +23,12 @@ export type NotificationKind =
   | "now_playing"
   | "advance_tickets";
 
-type PreferenceShape = {
-  emailEnabled: boolean;
-  newlyScheduledEnabled: boolean;
-  nowPlayingEnabled: boolean;
-  advanceTicketsEnabled: boolean;
-};
-
 function createId() {
   return crypto.randomUUID();
 }
 
 function createDeliveryKey(userId: string, eventId: string) {
   return `email:${userId}:${eventId}`;
-}
-
-function defaultPreferences(): PreferenceShape {
-  return {
-    emailEnabled: true,
-    newlyScheduledEnabled: true,
-    nowPlayingEnabled: true,
-    advanceTicketsEnabled: true,
-  };
-}
-
-function applyPreferenceDefaults(
-  row:
-    | {
-        emailEnabled?: boolean | null;
-        newlyScheduledEnabled?: boolean | null;
-        nowPlayingEnabled?: boolean | null;
-        advanceTicketsEnabled?: boolean | null;
-      }
-    | null
-    | undefined,
-): PreferenceShape {
-  const defaults = defaultPreferences();
-
-  return {
-    emailEnabled: row?.emailEnabled ?? defaults.emailEnabled,
-    newlyScheduledEnabled:
-      row?.newlyScheduledEnabled ?? defaults.newlyScheduledEnabled,
-    nowPlayingEnabled: row?.nowPlayingEnabled ?? defaults.nowPlayingEnabled,
-    advanceTicketsEnabled:
-      row?.advanceTicketsEnabled ?? defaults.advanceTicketsEnabled,
-  };
 }
 
 function escapeHtml(value: string) {
@@ -111,7 +76,7 @@ function notificationKindFromEventKind(eventKind: string | null | undefined) {
   }
 }
 
-function isKindEnabled(kind: NotificationKind, prefs: PreferenceShape) {
+function isKindEnabled(kind: NotificationKind, prefs: NotificationPreferenceShape) {
   if (!prefs.emailEnabled) {
     return false;
   }
@@ -262,61 +227,6 @@ function buildEmailContent(input: {
   return { subject, text, html };
 }
 
-export async function getOrCreateNotificationPreferences(userId: string) {
-  const db = getDb();
-
-  await db
-    .insert(userNotificationPreferences)
-    .values({
-      id: createId(),
-      userId,
-      emailEnabled: true,
-      newlyScheduledEnabled: true,
-      nowPlayingEnabled: true,
-      advanceTicketsEnabled: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .onConflictDoNothing({
-      target: userNotificationPreferences.userId,
-    });
-
-  const [preferences] = await db
-    .select()
-    .from(userNotificationPreferences)
-    .where(eq(userNotificationPreferences.userId, userId))
-    .limit(1);
-
-  if (!preferences) {
-    throw new Error("Failed to load notification preferences.");
-  }
-
-  return preferences;
-}
-
-export async function updateNotificationPreferences(
-  userId: string,
-  input: Partial<PreferenceShape>,
-) {
-  const db = getDb();
-  const current = await getOrCreateNotificationPreferences(userId);
-
-  await db
-    .update(userNotificationPreferences)
-    .set({
-      emailEnabled: input.emailEnabled ?? current.emailEnabled,
-      newlyScheduledEnabled:
-        input.newlyScheduledEnabled ?? current.newlyScheduledEnabled,
-      nowPlayingEnabled: input.nowPlayingEnabled ?? current.nowPlayingEnabled,
-      advanceTicketsEnabled:
-        input.advanceTicketsEnabled ?? current.advanceTicketsEnabled,
-      updatedAt: new Date(),
-    })
-    .where(eq(userNotificationPreferences.userId, userId));
-
-  return getOrCreateNotificationPreferences(userId);
-}
-
 export async function processPendingEmailNotifications(input?: {
   limit?: number;
   daysBack?: number;
@@ -390,6 +300,7 @@ export async function processPendingEmailNotifications(input?: {
       notificationDeliveries,
       and(
         eq(notificationDeliveries.userId, appUsers.id),
+        eq(notificationDeliveries.channel, "email"),
         eq(
           notificationDeliveries.availabilityChangeEventId,
           availabilityChangeEvents.id,
@@ -425,7 +336,7 @@ export async function processPendingEmailNotifications(input?: {
       notificationKindFromEventKind(row.eventKind) ??
       classifyAvailabilityChange(row.previousStatus, row.newStatus);
 
-    const prefs = applyPreferenceDefaults(row);
+    const prefs = applyNotificationPreferenceDefaults(row);
     const recipient = row.userEmail;
 
     let skipReason: string | null = null;

@@ -20,7 +20,11 @@ import {
   cleanupOldWorkerJobRuns,
   touchLocationSyncState,
 } from "./operations";
-import { enqueueLocationSync, enqueueNotificationProcessing } from "./queues";
+import {
+  enqueueLocationSync,
+  enqueueNotificationProcessing,
+  enqueuePushNotificationProcessing,
+} from "./queues";
 
 function todayBusinessDate() {
   return new Date().toISOString().slice(0, 10);
@@ -133,6 +137,12 @@ export async function syncLocationCluster(input: {
     locationId: cluster.locationId,
     reason: `after-location-sync:${cluster.locationId}`,
     limit: env.PHASE4_NOTIFICATION_BATCH_SIZE,
+  });
+
+  await enqueuePushNotificationProcessing({
+    locationId: cluster.locationId,
+    reason: `after-location-sync:${cluster.locationId}`,
+    limit: env.PHASE5_PUSH_BATCH_SIZE,
   });
 
   await touchLocationSyncState({

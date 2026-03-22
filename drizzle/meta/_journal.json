@@ -36,6 +36,13 @@
       "when": 1774200004347,
       "tag": "0004_phase4_sync_automation",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774204926902,
+      "tag": "0005_smart_shooting_star",
+      "breakpoints": true
     }
   ]
 }

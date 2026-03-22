@@ -1,11 +1,14 @@
+import { NextResponse } from "next/server";
 import { getOrCreateAppUser } from "@/lib/phase2/auth";
 import { jsonFromError } from "@/lib/phase2/errors";
+import { isPushConfigured } from "@/lib/phase5/push";
 import {
   getOrCreateNotificationPreferences,
   isEmailTransportConfigured,
   updateNotificationPreferences,
-} from "@/lib/phase3/notifications";
-import { NextResponse } from "next/server";
+} from "@/lib/phase5/preferences";
+
+export const runtime = "nodejs";
 
 export async function GET() {
   try {
@@ -15,6 +18,7 @@ export async function GET() {
     return NextResponse.json({
       email: user.email ?? null,
       smtpConfigured: isEmailTransportConfigured(),
+      pushConfigured: isPushConfigured(),
       preferences,
     });
   } catch (error) {
@@ -27,14 +31,19 @@ export async function PATCH(request: Request) {
     const user = await getOrCreateAppUser();
     const body = (await request.json().catch(() => ({}))) as Partial<{
       emailEnabled: boolean;
+      pushEnabled: boolean;
       newlyScheduledEnabled: boolean;
       nowPlayingEnabled: boolean;
       advanceTicketsEnabled: boolean;
+      theatreCountIncreasedEnabled: boolean;
+      finalShowingSoonEnabled: boolean;
     }>;
 
     const preferences = await updateNotificationPreferences(user.id, {
       emailEnabled:
         typeof body.emailEnabled === "boolean" ? body.emailEnabled : undefined,
+      pushEnabled:
+        typeof body.pushEnabled === "boolean" ? body.pushEnabled : undefined,
       newlyScheduledEnabled:
         typeof body.newlyScheduledEnabled === "boolean"
           ? body.newlyScheduledEnabled
@@ -47,11 +56,20 @@ export async function PATCH(request: Request) {
         typeof body.advanceTicketsEnabled === "boolean"
           ? body.advanceTicketsEnabled
           : undefined,
+      theatreCountIncreasedEnabled:
+        typeof body.theatreCountIncreasedEnabled === "boolean"
+          ? body.theatreCountIncreasedEnabled
+          : undefined,
+      finalShowingSoonEnabled:
+        typeof body.finalShowingSoonEnabled === "boolean"
+          ? body.finalShowingSoonEnabled
+          : undefined,
     });
 
     return NextResponse.json({
       email: user.email ?? null,
       smtpConfigured: isEmailTransportConfigured(),
+      pushConfigured: isPushConfigured(),
       preferences,
     });
   } catch (error) {
