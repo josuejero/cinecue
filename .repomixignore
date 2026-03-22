@@ -6,6 +6,13 @@ yarn.lock
 /.pnp
 .pnp.*
 
+# yarn helpers
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
 # build & cache
 .next/
 .next/**
@@ -13,7 +20,9 @@ yarn.lock
 /build/
 /coverage/
 tsconfig.tsbuildinfo
+*.tsbuildinfo
 next-env.d.ts
+.eslintcache
 
 # environment
 .env*
@@ -28,3 +37,7 @@ yarn-error.log*
 .pnpm-debug.log*
 *.pem
 repomix-output.xml
+
+# editor/workspace
+.vscode/
+.idea/

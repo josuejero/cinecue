@@ -1,5 +1,6 @@
 import { checkDb } from "@/db/client";
 import { getServerEnv } from "@/lib/env";
+import { isEmailTransportConfigured } from "@/lib/phase3/notifications";
 import { getRedis } from "@/lib/redis";
 import { NextResponse } from "next/server";
 
@@ -12,6 +13,7 @@ export async function GET() {
     authSecretConfigured: Boolean(env.AUTH_SECRET),
     gracenoteConfigured: Boolean(env.GRACENOTE_API_KEY),
     tmdbConfigured: Boolean(env.TMDB_READ_ACCESS_TOKEN || env.TMDB_API_KEY),
+    smtpConfigured: isEmailTransportConfigured(),
   };
 
   try {
@@ -33,7 +35,7 @@ export async function GET() {
   return NextResponse.json(
     {
       ok,
-      phase: 2,
+      phase: 3,
       checks,
       timestamp: new Date().toISOString(),
     },

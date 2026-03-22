@@ -2,7 +2,7 @@ import { parseServerEnv } from "@/lib/env";
 import { describe, expect, it } from "vitest";
 
 describe("parseServerEnv", () => {
-  it("accepts the minimum phase 0 env contract", () => {
+  it("accepts the minimum phase 3 env contract", () => {
     const env = parseServerEnv({
       NODE_ENV: "development",
       DATABASE_URL: "postgresql://cinecue:cinecue@localhost:5432/cinecue",
@@ -12,5 +12,28 @@ describe("parseServerEnv", () => {
 
     expect(env.NODE_ENV).toBe("development");
     expect(env.DATABASE_URL).toContain("cinecue");
+    expect(env.APP_BASE_URL).toBe("http://localhost:3000");
+    expect(env.SMTP_HOST).toBeUndefined();
+  });
+
+  it("parses optional SMTP env vars when provided", () => {
+    const env = parseServerEnv({
+      NODE_ENV: "development",
+      DATABASE_URL: "postgresql://cinecue:cinecue@localhost:5432/cinecue",
+      REDIS_URL: "redis://localhost:6379",
+      AUTH_SECRET: "4e6fe46903332bfb8f7fae9f2d52dbe3",
+      APP_BASE_URL: "https://cinecue.example.com",
+      SMTP_HOST: "smtp.example.com",
+      SMTP_PORT: "587",
+      SMTP_SECURE: "false",
+      SMTP_USER: "user",
+      SMTP_PASS: "pass",
+      SMTP_FROM: "CineCue Alerts <alerts@example.com>",
+    });
+
+    expect(env.APP_BASE_URL).toBe("https://cinecue.example.com");
+    expect(env.SMTP_HOST).toBe("smtp.example.com");
+    expect(env.SMTP_PORT).toBe(587);
+    expect(env.SMTP_SECURE).toBe("false");
   });
 });

@@ -889,7 +889,7 @@ export async function syncTheatresByZip(input: {
   );
 
   try {
-    const location = await upsertZipLocation(normalizedZip, radiusMiles);
+    await upsertZipLocation(normalizedZip, radiusMiles);
 
     const normalizedTheatres = await getTheatresByZip({
       zip: normalizedZip,

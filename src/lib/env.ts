@@ -11,6 +11,15 @@ const serverEnvSchema = z.object({
   AUTH_GITHUB_ID: z.string().optional(),
   AUTH_GITHUB_SECRET: z.string().optional(),
 
+  APP_BASE_URL: z.string().url().default("http://localhost:3000"),
+
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_SECURE: z.enum(["true", "false"]).optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().min(1).optional(),
+
   GRACENOTE_BASE_URL: z.string().url().default("http://data.tmsapi.com/v1.1"),
   GRACENOTE_API_KEY: z.string().min(1).optional(),
 
@@ -37,7 +46,7 @@ function ensureEnvLoaded() {
 
   if (!fs.existsSync(envPath)) {
     throw new Error(
-      ".env missing; copy .env.example to .env and replace the placeholder values with real credentials (e.g., GRACENOTE_API_KEY) before running Phase 1 syncs.",
+      ".env missing; copy .env.example to .env and replace the placeholder values with real credentials before running the app.",
     );
   }
 
