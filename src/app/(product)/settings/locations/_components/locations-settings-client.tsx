@@ -12,9 +12,9 @@ import {
   SectionHeading,
   SelectInput,
   TextInput,
-} from "@/components/ui";
-import { readJson } from "@/lib/phase3/client";
-import { formatDateTime } from "@/lib/phase3/format";
+} from "@/shared/ui/ui";
+import { readJson } from "@/shared/utils/http-client";
+import { formatDateTime } from "@/modules/availability/domain/format";
 
 type SavedLocation = {
   userLocationId: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { InstallAppButton } from "@/components/install-app-button";
+import { InstallAppButton } from "../../_components/install-app-button";
 import {
   ActionButton,
   BellIcon,
@@ -10,13 +10,13 @@ import {
   Notice,
   Panel,
   SectionHeading,
-} from "@/components/ui";
-import { readJson } from "@/lib/phase3/client";
+} from "@/shared/ui/ui";
+import { readJson } from "@/shared/utils/http-client";
 import {
   ensureServiceWorkerRegistration,
   serializePushSubscription,
   urlBase64ToUint8Array,
-} from "@/lib/phase5/browser";
+} from "@/modules/notifications/browser";
 
 type PreferencesPayload = {
   id: string;

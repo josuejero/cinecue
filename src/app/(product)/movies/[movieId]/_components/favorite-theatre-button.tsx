@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ActionButton, HeartIcon } from "@/components/ui";
-import { readJson } from "@/lib/phase3/client";
+import { ActionButton, HeartIcon } from "@/shared/ui/ui";
+import { readJson } from "@/shared/utils/http-client";
 
 export function FavoriteTheatreButton(props: {
   locationId: string;

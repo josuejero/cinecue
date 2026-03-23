@@ -1,4 +1,4 @@
-import { ActionAnchor, DownloadIcon } from "@/components/ui";
+import { ActionAnchor, DownloadIcon } from "@/shared/ui/ui";
 import type { ReactNode } from "react";
 
 export function CalendarExportButton(props: {

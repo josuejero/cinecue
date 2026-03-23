@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { InstallAppButton } from "@/components/install-app-button";
-import { StatusBadge } from "@/components/status-badge";
+import { InstallAppButton } from "../../_components/install-app-button";
+import { StatusBadge } from "@/shared/ui/status-badge";
 import {
   ActionButton,
   ActionLink,
@@ -23,13 +23,13 @@ import {
   SparkIcon,
   TextInput,
   cx,
-} from "@/components/ui";
-import { readJson } from "@/lib/phase3/client";
+} from "@/shared/ui/ui";
+import { readJson } from "@/shared/utils/http-client";
 import {
   describeAvailabilityChange,
   formatDate,
   formatDateTime,
-} from "@/lib/phase3/format";
+} from "@/modules/availability/domain/format";
 
 type SavedLocation = {
   userLocationId: string;

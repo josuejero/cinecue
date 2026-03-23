@@ -1,7 +1,7 @@
 "use client";
 
 import { signIn, signOut } from "next-auth/react";
-import { ActionButton } from "@/components/ui";
+import { ActionButton } from "@/shared/ui/ui";
 import type { ReactNode } from "react";
 
 type AuthButtonProps = {

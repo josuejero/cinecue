@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
-import { SignInButton } from "@/components/auth-buttons";
-import { PageShell } from "@/components/app-shell";
+import { SignInButton } from "@/shared/ui/auth-buttons";
+import { PageShell } from "@/shared/ui/app-shell";
 import {
   ArrowRightIcon,
   BellIcon,
@@ -11,7 +11,7 @@ import {
   Notice,
   Panel,
   PulseIcon,
-} from "@/components/ui";
+} from "@/shared/ui/ui";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {

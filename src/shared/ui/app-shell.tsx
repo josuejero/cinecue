@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Eyebrow, MetaPill, Panel, cx } from "@/components/ui";
+import { Eyebrow, MetaPill, Panel, cx } from "./ui";
 
 const widths = {
   narrow: "max-w-5xl",

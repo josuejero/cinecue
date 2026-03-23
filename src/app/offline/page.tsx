@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { PageShell } from "@/components/app-shell";
-import { ActionLink, ArrowLeftIcon, Eyebrow, Notice, Panel } from "@/components/ui";
+import { PageShell } from "@/shared/ui/app-shell";
+import { ActionLink, ArrowLeftIcon, Eyebrow, Notice, Panel } from "@/shared/ui/ui";
 
 export const metadata: Metadata = {
   title: "Offline",

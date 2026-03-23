@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
-import { PageHero, PageShell } from "@/components/app-shell";
-import { SignOutButton } from "@/components/auth-buttons";
-import { LocationsSettingsClient } from "@/components/locations-settings-client";
-import { ActionLink, ArrowLeftIcon } from "@/components/ui";
+import { PageHero, PageShell } from "@/shared/ui/app-shell";
+import { SignOutButton } from "@/shared/ui/auth-buttons";
+import { LocationsSettingsClient } from "./_components/locations-settings-client";
+import { ActionLink, ArrowLeftIcon } from "@/shared/ui/ui";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {

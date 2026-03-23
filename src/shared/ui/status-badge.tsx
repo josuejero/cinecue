@@ -1,5 +1,5 @@
-import { humanizeStatus } from "@/lib/phase3/format";
-import { cx } from "@/components/ui";
+import { humanizeStatus } from "@/modules/availability/domain/format";
+import { cx } from "./ui";
 
 const statusTones: Record<string, string> = {
   now_playing:

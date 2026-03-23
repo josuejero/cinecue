@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarExportButton } from "@/components/calendar-export-button";
-import { FavoriteTheatreButton } from "@/components/favorite-theatre-button";
-import { StatusBadge } from "@/components/status-badge";
+import { CalendarExportButton } from "./calendar-export-button";
+import { FavoriteTheatreButton } from "./favorite-theatre-button";
+import { StatusBadge } from "@/shared/ui/status-badge";
 import {
   ActionAnchor,
   ActionButton,
@@ -16,9 +16,9 @@ import {
   PosterArt,
   SectionHeading,
   SelectInput,
-} from "@/components/ui";
-import { readJson } from "@/lib/phase3/client";
-import { formatDate, formatDateTime } from "@/lib/phase3/format";
+} from "@/shared/ui/ui";
+import { readJson } from "@/shared/utils/http-client";
+import { formatDate, formatDateTime } from "@/modules/availability/domain/format";
 
 type SavedLocation = {
   userLocationId: string;

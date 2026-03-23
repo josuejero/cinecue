@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ActionButton, DownloadIcon } from "@/components/ui";
+import { ActionButton, DownloadIcon } from "@/shared/ui/ui";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
-import { PageHero, PageHeroMeta, PageShell } from "@/components/app-shell";
-import { SignOutButton } from "@/components/auth-buttons";
-import { DashboardClient } from "@/components/dashboard-client";
-import { ActionLink, BellIcon, MapPinIcon } from "@/components/ui";
+import { PageHero, PageHeroMeta, PageShell } from "@/shared/ui/app-shell";
+import { SignOutButton } from "@/shared/ui/auth-buttons";
+import { DashboardClient } from "./_components/dashboard-client";
+import { ActionLink, BellIcon, MapPinIcon } from "@/shared/ui/ui";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
