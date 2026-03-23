@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 export class BadRequestError extends Error {}
 export class UnauthorizedError extends Error {}
 export class NotFoundError extends Error {}
+export class ConflictError extends Error {}
 
 export class TooManyRequestsError extends Error {
   constructor(
@@ -25,6 +26,10 @@ export function jsonFromError(error: unknown) {
 
   if (error instanceof NotFoundError) {
     return NextResponse.json({ error: error.message }, { status: 404 });
+  }
+
+  if (error instanceof ConflictError) {
+    return NextResponse.json({ error: error.message }, { status: 409 });
   }
 
   if (error instanceof TooManyRequestsError) {

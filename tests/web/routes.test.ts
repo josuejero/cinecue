@@ -6,6 +6,7 @@ const resolveUserLocation = vi.fn();
 const getFollowedMovieIds = vi.fn();
 const loadDashboard = vi.fn();
 const loadMovieDetail = vi.fn();
+const resolveOrCreateMovieFromTmdbId = vi.fn();
 const createFollow = vi.fn();
 const refreshSelectedMovieLocalStatuses = vi.fn();
 const refreshMovieLocalStatusForLocation = vi.fn();
@@ -52,6 +53,8 @@ vi.mock("@/modules/follows/server", () => ({
 
 vi.mock("@/modules/catalog/server", () => ({
   loadMovieDetail: (...args: unknown[]) => loadMovieDetail(...args),
+  resolveOrCreateMovieFromTmdbId: (...args: unknown[]) =>
+    resolveOrCreateMovieFromTmdbId(...args),
 }));
 
 vi.mock("@/modules/availability/read-model", () => ({
@@ -112,6 +115,10 @@ describe("web routes", () => {
     assertRateLimit.mockResolvedValue({ key: "rate:test", count: 1, remaining: 59 });
     createFollow.mockResolvedValue(undefined);
     removeFollow.mockResolvedValue(undefined);
+    resolveOrCreateMovieFromTmdbId.mockResolvedValue({
+      movieId: "movie_imported",
+      created: true,
+    });
   });
 
   it("returns cached dashboard payloads, records a dashboard_view event, and rate limits by user", async () => {
@@ -175,8 +182,21 @@ describe("web routes", () => {
     expect(writeDashboardCache).toHaveBeenCalled();
   });
 
-  it("tracks search events without changing the search response contract", async () => {
-    const results = [{ movieId: "movie_1", title: "The Batman", isFollowed: true }];
+  it("tracks search events with the hybrid search response contract", async () => {
+    const results = [
+      {
+        resultKey: "movie:movie_1",
+        movieId: "movie_1",
+        title: "The Batman",
+        releaseYear: 2022,
+        releaseDate: "2022-03-04",
+        posterUrl: null,
+        shortDescription: null,
+        isFollowed: true,
+        isInCatalog: true,
+        importSource: null,
+      },
+    ];
     searchMoviesForFollowFlow.mockResolvedValueOnce(results);
 
     const response = await searchGet(
@@ -214,6 +234,40 @@ describe("web routes", () => {
       userId: user.id,
       locationId: location.locationId,
       movieId: "movie_1",
+      eventName: "follow",
+      properties: {},
+    });
+  });
+
+  it("imports TMDB search hits before creating a follow", async () => {
+    loadMovieDetail.mockResolvedValueOnce({ movie: { movieId: "movie_imported" } });
+    refreshMovieLocalStatusForLocation.mockResolvedValueOnce(undefined);
+
+    const response = await followPost(
+      new Request("http://localhost/api/follows", {
+        method: "POST",
+        body: JSON.stringify({
+          source: { provider: "tmdb", tmdbId: "550" },
+          locationId: "loc_1",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(resolveOrCreateMovieFromTmdbId).toHaveBeenCalledWith("550");
+    expect(createFollow).toHaveBeenCalledWith({
+      userId: user.id,
+      movieId: "movie_imported",
+      locationId: location.locationId,
+    });
+    expect(refreshMovieLocalStatusForLocation).toHaveBeenCalledWith(
+      location.locationId,
+      "movie_imported",
+    );
+    expect(trackProductEvent).toHaveBeenCalledWith({
+      userId: user.id,
+      locationId: location.locationId,
+      movieId: "movie_imported",
       eventName: "follow",
       properties: {},
     });

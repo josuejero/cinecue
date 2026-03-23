@@ -10,6 +10,8 @@ import {
 import { resolvePosterUrl } from "@/modules/catalog/posters";
 import { NotFoundError } from "@/shared/http/errors";
 
+export { resolveOrCreateMovieFromTmdbId } from "@/modules/catalog/resolution";
+
 export async function loadMovieDetail(input: {
   userId: string;
   locationId: string;

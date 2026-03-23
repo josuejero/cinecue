@@ -59,6 +59,34 @@ describe("availability change detection", () => {
     expect(events.map((event) => event.eventKind)).not.toContain("newly_scheduled");
   });
 
+  it("emits newly scheduled when a coming soon title jumps straight to now playing", () => {
+    const events = buildAvailabilityEvents({
+      movieId: "movie_1",
+      locationId: "location_1",
+      currentBusinessDate: "2026-04-11",
+      finalShowingSoonHours: 24,
+      previous: {
+        status: "coming_soon",
+        nextShowingAt: null,
+        firstShowingAt: null,
+        lastShowingAt: null,
+        theatreCount: 0,
+      },
+      current: {
+        status: "now_playing",
+        nextShowingAt: new Date("2026-04-11T19:30:00Z"),
+        firstShowingAt: new Date("2026-04-11T19:30:00Z"),
+        lastShowingAt: new Date("2026-04-14T22:00:00Z"),
+        theatreCount: 2,
+      },
+      now: new Date("2026-04-11T12:00:00Z"),
+    });
+
+    expect(events.map((event) => event.eventKind)).toEqual(
+      expect.arrayContaining(["status_changed", "newly_scheduled", "now_playing"]),
+    );
+  });
+
   it("emits theatre_count_increased when coverage expands", () => {
     const events = buildAvailabilityEvents({
       movieId: "movie_1",

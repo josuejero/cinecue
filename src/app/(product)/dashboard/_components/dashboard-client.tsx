@@ -30,6 +30,7 @@ import {
   formatDate,
   formatDateTime,
 } from "@/modules/availability/domain/format";
+import type { MovieSearchResult } from "@/modules/search/types";
 
 type SavedLocation = {
   userLocationId: string;
@@ -84,18 +85,8 @@ type LocationsResponse = {
   locations: SavedLocation[];
 };
 
-type SearchResult = {
-  movieId: string;
-  title: string;
-  releaseYear: number | null;
-  releaseDate: string | null;
-  posterUrl: string | null;
-  shortDescription: string | null;
-  isFollowed: boolean;
-};
-
 type SearchResponse = {
-  results: SearchResult[];
+  results: MovieSearchResult[];
 };
 
 type ChangesResponse = {
@@ -136,8 +127,8 @@ function SearchResultCard({
 }: {
   busy: boolean;
   locationId: string;
-  movie: SearchResult;
-  onToggleFollow: (movieId: string, isFollowed: boolean) => Promise<void>;
+  movie: MovieSearchResult;
+  onToggleFollow: (movie: MovieSearchResult) => Promise<void>;
 }) {
   return (
     <Panel className="cine-enter-delay cine-hover-lift p-3 sm:p-4" tone="soft">
@@ -152,12 +143,18 @@ function SearchResultCard({
           <div className="space-y-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-2">
-                <Link
-                  className="font-display text-2xl tracking-[-0.03em] text-[color:var(--foreground)] transition hover:text-[color:var(--oxblood)]"
-                  href={`/movies/${movie.movieId}?locationId=${encodeURIComponent(locationId)}`}
-                >
-                  {movie.title}
-                </Link>
+                {movie.movieId ? (
+                  <Link
+                    className="font-display text-2xl tracking-[-0.03em] text-[color:var(--foreground)] transition hover:text-[color:var(--oxblood)]"
+                    href={`/movies/${movie.movieId}?locationId=${encodeURIComponent(locationId)}`}
+                  >
+                    {movie.title}
+                  </Link>
+                ) : (
+                  <h3 className="font-display text-2xl tracking-[-0.03em] text-[color:var(--foreground)]">
+                    {movie.title}
+                  </h3>
+                )}
                 <div className="flex flex-wrap items-center gap-2 text-sm text-[color:var(--foreground-muted)]">
                   <span>{movie.releaseYear ? `${movie.releaseYear}` : "Release year TBD"}</span>
                   <Dot />
@@ -169,7 +166,7 @@ function SearchResultCard({
               <ActionButton
                 disabled={busy}
                 onClick={() => {
-                  void onToggleFollow(movie.movieId, movie.isFollowed);
+                  void onToggleFollow(movie);
                 }}
                 size="sm"
                 variant={movie.isFollowed ? "secondary" : "primary"}
@@ -185,14 +182,20 @@ function SearchResultCard({
             ) : null}
           </div>
 
-          <ActionLink
-            href={`/movies/${movie.movieId}?locationId=${encodeURIComponent(locationId)}`}
-            iconAfter={<ArrowRightIcon />}
-            size="sm"
-            variant="ghost"
-          >
-            Open local detail
-          </ActionLink>
+          {movie.movieId ? (
+            <ActionLink
+              href={`/movies/${movie.movieId}?locationId=${encodeURIComponent(locationId)}`}
+              iconAfter={<ArrowRightIcon />}
+              size="sm"
+              variant="ghost"
+            >
+              Open local detail
+            </ActionLink>
+          ) : (
+            <p className="text-sm text-[color:var(--foreground-muted)]">
+              Follow to create a local detail page for this title.
+            </p>
+          )}
         </div>
       </div>
     </Panel>
@@ -324,8 +327,8 @@ export function DashboardClient() {
   const [zip, setZip] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [busyMovieIds, setBusyMovieIds] = useState<string[]>([]);
+  const [searchResults, setSearchResults] = useState<MovieSearchResult[]>([]);
+  const [busyKeys, setBusyKeys] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [liveState, setLiveState] = useState<
     "idle" | "connecting" | "connected" | "reconnecting"
@@ -549,7 +552,7 @@ export function DashboardClient() {
     }
 
     try {
-      setBusyMovieIds((current) => [...current, movieId]);
+      setBusyKeys((current) => [...current, movieId]);
       setError(null);
 
       if (isFollowed) {
@@ -573,7 +576,51 @@ export function DashboardClient() {
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Failed to update follow.");
     } finally {
-      setBusyMovieIds((current) => current.filter((id) => id !== movieId));
+      setBusyKeys((current) => current.filter((id) => id !== movieId));
+    }
+  }
+
+  async function handleToggleSearchResult(movie: MovieSearchResult) {
+    if (!selectedLocationId) {
+      return;
+    }
+
+    const busyKey = movie.resultKey;
+
+    try {
+      setBusyKeys((current) => [...current, busyKey]);
+      setError(null);
+
+      if (movie.isFollowed && movie.movieId) {
+        await readJson(
+          `/api/follows/${movie.movieId}?locationId=${encodeURIComponent(selectedLocationId)}`,
+          {
+            method: "DELETE",
+          },
+        );
+      } else if (movie.movieId) {
+        await readJson("/api/follows", {
+          method: "POST",
+          body: JSON.stringify({
+            movieId: movie.movieId,
+            locationId: selectedLocationId,
+          }),
+        });
+      } else if (movie.importSource) {
+        await readJson("/api/follows", {
+          method: "POST",
+          body: JSON.stringify({
+            source: movie.importSource,
+            locationId: selectedLocationId,
+          }),
+        });
+      }
+
+      await refreshAll(selectedLocationId);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Failed to update follow.");
+    } finally {
+      setBusyKeys((current) => current.filter((id) => id !== busyKey));
     }
   }
 
@@ -780,11 +827,11 @@ export function DashboardClient() {
                 ) : searchResults.length ? (
                   searchResults.map((movie) => (
                     <SearchResultCard
-                      key={movie.movieId}
-                      busy={busyMovieIds.includes(movie.movieId)}
+                      key={movie.resultKey}
+                      busy={busyKeys.includes(movie.resultKey)}
                       locationId={selectedLocationId}
                       movie={movie}
-                      onToggleFollow={handleToggleFollow}
+                      onToggleFollow={handleToggleSearchResult}
                     />
                   ))
                 ) : (
@@ -847,7 +894,7 @@ export function DashboardClient() {
                     {section.items.map((movie) => (
                       <FollowedMovieCard
                         key={movie.movieId}
-                        busy={busyMovieIds.includes(movie.movieId)}
+                        busy={busyKeys.includes(movie.movieId)}
                         locationId={selectedLocationId}
                         movie={movie}
                         onUnfollow={async (movieId) => handleToggleFollow(movieId, true)}
