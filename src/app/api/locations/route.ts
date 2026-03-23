@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { BadRequestError, jsonFromError } from "@/lib/phase2/errors";
-import { trackProductEvent } from "@/lib/phase6/analytics";
-import { invalidateDashboardCacheForUser } from "@/lib/phase6/dashboard-cache";
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { BadRequestError, jsonFromError } from "@/shared/http/errors";
+import { trackProductEvent } from "@/modules/analytics/server";
+import { invalidateDashboardCacheForUser } from "@/modules/availability/dashboard-cache";
 import {
   createSavedLocationForUser,
   listUserSavedLocations,
   setDefaultSavedLocation,
-} from "@/lib/phase6/locations";
-import { assertRateLimit } from "@/lib/rate-limit";
+} from "@/modules/locations/server";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 export async function GET(request: Request) {
   try {

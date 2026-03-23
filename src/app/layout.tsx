@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Manrope } from "next/font/google";
-import { PwaProvider } from "@/shared/ui/pwa-provider";
+import { PwaProvider } from "@/app/_components/pwa-provider";
 import "./globals.css";
 
 const manrope = Manrope({

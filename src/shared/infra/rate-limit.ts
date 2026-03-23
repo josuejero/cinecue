@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
-import { TooManyRequestsError } from "@/lib/phase2/errors";
-import { getRedis } from "@/lib/redis";
+import { TooManyRequestsError } from "@/shared/http/errors";
+import { getRedis } from "@/shared/infra/redis";
 
 function sha256(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");

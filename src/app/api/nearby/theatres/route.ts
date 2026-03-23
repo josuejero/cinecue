@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { jsonFromError } from "@/lib/phase2/errors";
-import { resolveUserLocation } from "@/lib/phase2/locations";
-import { listNearbyTheatresForLocation } from "@/lib/phase2/queries";
-import { assertRateLimit } from "@/lib/rate-limit";
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { jsonFromError } from "@/shared/http/errors";
+import { resolveUserLocation } from "@/modules/locations/server";
+import { listNearbyTheatresForLocation } from "@/modules/theatres/server";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 export async function GET(request: Request) {
   try {

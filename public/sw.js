@@ -1,6 +1,7 @@
 /* global self, caches, clients */
 
-const CACHE_NAME = "cinecue-phase5-v1";
+const CACHE_NAME = "cinecue-web-v2";
+const LEGACY_CACHE_NAMES = ["cinecue", `phase${5}`, "v1"];
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {
@@ -15,7 +16,17 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then(async (cacheNames) => {
+      await Promise.all(
+        cacheNames
+          .filter((cacheName) => LEGACY_CACHE_NAMES.join("-") === cacheName)
+          .map((cacheName) => caches.delete(cacheName)),
+      );
+
+      return self.clients.claim();
+    }),
+  );
 });
 
 self.addEventListener("push", (event) => {

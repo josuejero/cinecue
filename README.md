@@ -82,59 +82,78 @@ npm run dev
 
 ## Core scripts
 
-### Phase 1 sync by ZIP
+### Sync availability by ZIP
 
 ```bash
-npm run phase1:sync -- --zip 10001 --start-date 2026-03-22 --num-days 14 --radius-miles 25 --country USA
+npm run availability:sync -- --zip 10001 --start-date 2026-03-22 --num-days 14 --radius-miles 25 --country USA
 ```
 
 ### Rebuild read models
 
 ```bash
-npm run phase2:rebuild -- --zip 10001
+npm run availability:rebuild-read-model -- --zip 10001
 ```
 
 ### Email notification dry run
 
 ```bash
-npm run phase3:notify -- --dry-run --limit 50 --days-back 14
+npm run notifications:send-email -- --dry-run --limit 50 --days-back 14
 ```
 
 ### Scheduler bootstrap
 
 ```bash
-npm run phase4:schedulers
+npm run worker:schedulers
 ```
 
 ### Enqueue active-location syncs
 
 ```bash
-npm run phase4:sync-active -- --limit 100
+npm run availability:sync-active -- --limit 100
 ```
 
 ### Replay one location
 
 ```bash
-npm run phase4:replay-location -- --location-id YOUR_LOCATION_ID --start-date 2026-03-22 --num-days 7
+npm run availability:replay-location -- --location-id YOUR_LOCATION_ID --start-date 2026-03-22 --num-days 7
 ```
 
 ### Replay one movie in one location
 
 ```bash
-npm run phase4:replay-movie -- --location-id YOUR_LOCATION_ID --movie-id YOUR_MOVIE_ID
+npm run availability:replay-movie -- --location-id YOUR_LOCATION_ID --movie-id YOUR_MOVIE_ID
 ```
 
 ### Push notification dry run
 
 ```bash
-npm run phase5:push -- --dry-run --limit 50 --days-back 7
+npm run notifications:send-push -- --dry-run --limit 50 --days-back 7
 ```
 
-### Phase 6 ops snapshot
+### Operations snapshot
 
 ```bash
-npm run phase6:ops-report
+npm run ops:report
 ```
+
+## Runtime id cutover
+
+Use this once when cutting over from the historical runtime ids to the domain-named queues, schedulers, and dashboard cache keys.
+
+Preview the cutover:
+
+```bash
+npm run ops:cutover-runtime-ids -- --dry-run
+```
+
+Maintenance runbook:
+
+1. Stop the web app and worker so no old jobs are still being produced or consumed.
+2. Deploy the code and env changes that use the new runtime ids.
+3. Run `npm run ops:cutover-runtime-ids` to remove legacy schedulers, clear legacy dashboard cache keys, bootstrap the new schedulers, and enqueue fresh availability, email, and push work.
+4. Start the worker.
+5. Start the web app.
+6. Verify `http://localhost:3000/api/ready`, `http://localhost:3000/api/health`, and `http://localhost:3000/api/ops`.
 
 ## Readiness and health
 
@@ -142,12 +161,11 @@ npm run phase6:ops-report
 curl -s http://localhost:3000/api/ready
 curl -s http://localhost:3000/api/health
 curl -s http://localhost:3000/api/ops
-curl -s http://localhost:3000/api/ops/phase6
 ```
 
 ## Environment notes
 
-- `GRACENOTE_API_KEY` must be replaced with a real key. The provider client checks whether your `.env` value still matches the placeholder from `.env.example`, and Phase 1 syncs fail fast if it does.
+- `GRACENOTE_API_KEY` must be replaced with a real key. The provider client checks whether your `.env` value still matches the placeholder from `.env.example`, and availability syncs fail fast if it does.
 - `AUTH_SECRET` must be at least 32 characters.
 - Push requires HTTPS in production or `localhost` in development.
 - SMTP is optional for booting the app, but required for real email delivery.

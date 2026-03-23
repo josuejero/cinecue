@@ -1,4 +1,4 @@
-import { getServerEnv } from "@/lib/env";
+import { getServerEnv } from "@/shared/infra/env";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -18,6 +18,15 @@ export function getPool() {
   }
 
   return global.__cinecuePool;
+}
+
+export async function closePool() {
+  if (!global.__cinecuePool) {
+    return;
+  }
+
+  await global.__cinecuePool.end();
+  global.__cinecuePool = undefined;
 }
 
 export function getDb() {

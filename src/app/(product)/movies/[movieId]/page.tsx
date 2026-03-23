@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
-import { PageHero, PageShell } from "@/shared/ui/app-shell";
-import { SignOutButton } from "@/shared/ui/auth-buttons";
+import { PageHero, PageShell } from "@/app/_components/app-shell";
+import { SignOutButton } from "@/app/_components/auth-buttons";
 import { MovieDetailClient } from "./_components/movie-detail-client";
 import { ActionLink, ArrowLeftIcon, BellIcon } from "@/shared/ui/ui";
 import { redirect } from "next/navigation";

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
-import { SignInButton } from "@/shared/ui/auth-buttons";
-import { PageShell } from "@/shared/ui/app-shell";
+import { SignInButton } from "@/app/_components/auth-buttons";
+import { PageShell } from "@/app/_components/app-shell";
 import {
   ArrowRightIcon,
   BellIcon,

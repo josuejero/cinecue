@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { BadRequestError, jsonFromError } from "@/lib/phase2/errors";
-import { isPushConfigured } from "@/lib/phase5/push";
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { BadRequestError, jsonFromError } from "@/shared/http/errors";
+import { isPushConfigured } from "@/modules/notifications/push";
 import {
   deactivateWebPushSubscription,
   upsertWebPushSubscription,
-} from "@/lib/phase5/preferences";
-import { assertRateLimit } from "@/lib/rate-limit";
+} from "@/modules/notifications/preferences";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 type PushSubscriptionInput = {
   endpoint?: string;

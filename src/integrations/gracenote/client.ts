@@ -1,88 +1,13 @@
 import fs from "fs";
 import path from "path";
 
-import { getServerEnv } from "@/lib/env";
+import { getServerEnv } from "@/shared/infra/env";
 import {
-  businessDateFromIso,
-  normalizePostalCode,
-  normalizeTheatreIdentityKey,
-  normalizeTitle,
-  normalizeReleaseDate,
-  parseReleaseYear,
-  runtimeIsoToMinutes,
-} from "@/lib/normalize";
-import type {
-  NormalizedFutureRelease,
-  NormalizedMovieSeed,
-  NormalizedShowing,
-  NormalizedTheatre,
-} from "@/lib/providers/types";
-
-type RawGracenoteTheatre = {
-  id: string | number;
-  name: string;
-  chain?: string;
-  address1?: string;
-  address2?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
-  lat?: string | number;
-  lng?: string | number;
-  phone?: string;
-  timeZone?: string;
-};
-
-type RawGracenoteShowtime = {
-  theatre: {
-    id: string | number;
-    name: string;
-  };
-  dateTime: string;
-  quals?: string;
-  ticketURI?: string;
-  barg?: boolean;
-};
-
-type RawGracenoteMovie = {
-  tmsId?: string;
-  rootId?: string | number;
-  title: string;
-  releaseYear?: number;
-  releaseDate?: string;
-  entityType?: string;
-  subType?: string;
-  shortDescription?: string;
-  longDescription?: string;
-  runTime?: string;
-  preferredImage?: {
-    uri?: string;
-  };
-  showtimes?: RawGracenoteShowtime[];
-};
-
-type RawGracenoteFutureRelease = {
-  tmsId?: string;
-  rootId?: string | number;
-  title: string;
-  releaseYear?: number;
-  releaseDate?: string;
-  entityType?: string;
-  subType?: string;
-  shortDescription?: string;
-  longDescription?: string;
-  runTime?: string;
-  preferredImage?: {
-    uri?: string;
-  };
-  releases?: Array<{
-    date: string;
-    country?: string;
-    type?: string;
-    distributors?: Array<{ name?: string }>;
-  }>;
-};
+  normalizeGracenoteFutureReleases,
+  normalizeGracenoteShowings,
+  normalizeGracenoteTheatre,
+} from "@/integrations/gracenote/mapper";
+import type { RawGracenoteFutureRelease, RawGracenoteMovie, RawGracenoteTheatre } from "@/integrations/gracenote/types";
 
 let cachedExampleGracenoteKey: string | null | undefined;
 
@@ -128,13 +53,13 @@ function getClientConfig() {
   const env = getServerEnv();
 
   if (!env.GRACENOTE_API_KEY) {
-    throw new Error("GRACENOTE_API_KEY is required for Phase 1 syncs.");
+    throw new Error("GRACENOTE_API_KEY is required for availability syncs.");
   }
 
   const examplePlaceholder = getExampleGracenoteApiKey();
   if (examplePlaceholder && env.GRACENOTE_API_KEY === examplePlaceholder) {
     throw new Error(
-      "Phase 1 sync cannot run while GRACENOTE_API_KEY still matches the placeholder in .env.example. Copy .env.example to .env and replace GRACENOTE_API_KEY with the key provided by Gracenote.",
+      "Availability sync cannot run while GRACENOTE_API_KEY still matches the placeholder in .env.example. Copy .env.example to .env and replace GRACENOTE_API_KEY with the key provided by Gracenote.",
     );
   }
 
@@ -202,139 +127,6 @@ async function gracenoteGet<T>(
   }
 
   return (await response.json()) as T;
-}
-
-function normalizeMovieSeedFromGracenote(raw: RawGracenoteMovie): NormalizedMovieSeed {
-  const normalizedReleaseDate = normalizeReleaseDate(raw.releaseDate ?? undefined);
-
-  return {
-    provider: "gracenote",
-    tmsId: raw.tmsId ?? null,
-    rootId: raw.rootId ? String(raw.rootId) : null,
-    title: raw.title.trim(),
-    normalizedTitle: normalizeTitle(raw.title),
-    releaseYear: raw.releaseYear ?? parseReleaseYear(normalizedReleaseDate ?? raw.releaseDate ?? undefined),
-    releaseDate: normalizedReleaseDate,
-    entityType: raw.entityType ?? "Movie",
-    subType: raw.subType ?? null,
-    shortDescription: raw.shortDescription ?? null,
-    longDescription: raw.longDescription ?? null,
-    runtimeMinutes: runtimeIsoToMinutes(raw.runTime),
-    posterUrl: raw.preferredImage?.uri ?? null,
-    raw,
-  };
-}
-
-export function normalizeGracenoteTheatre(raw: RawGracenoteTheatre): NormalizedTheatre {
-  const theatre: NormalizedTheatre = {
-    provider: "gracenote",
-    externalId: String(raw.id),
-    externalType: "theatreId",
-    name: raw.name.trim(),
-    chainName: raw.chain ?? null,
-    address1: raw.address1 ?? null,
-    address2: raw.address2 ?? null,
-    city: raw.city ?? null,
-    state: raw.state ?? null,
-    postalCode: normalizePostalCode(raw.postalCode) ?? null,
-    countryCode: raw.country ?? "USA",
-    latitude: raw.lat != null ? Number(raw.lat) : null,
-    longitude: raw.lng != null ? Number(raw.lng) : null,
-    phone: raw.phone ?? null,
-    timeZone: raw.timeZone ?? null,
-    identityKey: "",
-    raw,
-  };
-
-  theatre.identityKey = normalizeTheatreIdentityKey(theatre);
-  return theatre;
-}
-
-export function normalizeGracenoteShowings(rawMovies: RawGracenoteMovie[]) {
-  const today = new Date().toISOString().slice(0, 10);
-  const normalized: NormalizedShowing[] = [];
-
-  for (const rawMovie of rawMovies) {
-    const movie = normalizeMovieSeedFromGracenote(rawMovie);
-
-    for (const rawShowtime of rawMovie.showtimes ?? []) {
-      const theatre: NormalizedTheatre = {
-        provider: "gracenote",
-        externalId: String(rawShowtime.theatre.id),
-        externalType: "theatreId",
-        name: rawShowtime.theatre.name.trim(),
-        chainName: null,
-        address1: null,
-        address2: null,
-        city: null,
-        state: null,
-        postalCode: null,
-        countryCode: "USA",
-        latitude: null,
-        longitude: null,
-        phone: null,
-        timeZone: null,
-        identityKey: "",
-        raw: rawShowtime.theatre,
-      };
-
-      theatre.identityKey = normalizeTheatreIdentityKey(theatre);
-
-      const businessDate = businessDateFromIso(rawShowtime.dateTime);
-
-      normalized.push({
-        provider: "gracenote",
-        movie,
-        theatre,
-        startAtLocal: rawShowtime.dateTime,
-        businessDate,
-        qualities: rawShowtime.quals ?? null,
-        ticketUrl: rawShowtime.ticketURI ?? null,
-        isBargain: Boolean(rawShowtime.barg),
-        isAdvanceTicket: Boolean(rawShowtime.ticketURI) && businessDate > today,
-        raw: rawShowtime,
-      });
-    }
-  }
-
-  return normalized;
-}
-
-export function normalizeGracenoteFutureReleases(
-  rawMovies: RawGracenoteFutureRelease[],
-): NormalizedFutureRelease[] {
-  const normalized: NormalizedFutureRelease[] = [];
-
-  for (const rawMovie of rawMovies) {
-    const movie = normalizeMovieSeedFromGracenote(rawMovie);
-
-    for (const release of rawMovie.releases ?? []) {
-      const futureReleaseDateInput = release.date ?? movie.releaseDate ?? undefined;
-      const normalizedFutureReleaseDate = normalizeReleaseDate(futureReleaseDateInput);
-      const futureReleaseYear =
-        (normalizedFutureReleaseDate ? parseReleaseYear(normalizedFutureReleaseDate) : null) ??
-        movie.releaseYear ??
-        null;
-
-      normalized.push({
-        provider: "gracenote",
-        movie: {
-          ...movie,
-          releaseDate: normalizedFutureReleaseDate,
-          releaseYear: futureReleaseYear,
-        },
-        releaseCountry: release.country ?? "USA",
-        releaseType: release.type ?? null,
-        distributorNames:
-          release.distributors
-            ?.map((distributor) => distributor.name)
-            .filter((name): name is string => Boolean(name)) ?? [],
-        raw: release,
-      });
-    }
-  }
-
-  return normalized;
 }
 
 export async function getTheatresByZip(input: {

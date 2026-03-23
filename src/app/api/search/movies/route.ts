@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { BadRequestError, jsonFromError } from "@/lib/phase2/errors";
-import { resolveUserLocation } from "@/lib/phase2/locations";
-import { trackProductEvent } from "@/lib/phase6/analytics";
-import { searchMoviesForFollowFlowPhase6 } from "@/lib/phase6/search";
-import { assertRateLimit } from "@/lib/rate-limit";
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { BadRequestError, jsonFromError } from "@/shared/http/errors";
+import { resolveUserLocation } from "@/modules/locations/server";
+import { trackProductEvent } from "@/modules/analytics/server";
+import { searchMoviesForFollowFlow } from "@/modules/search/server";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 export async function GET(request: Request) {
   try {
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     });
 
     const location = await resolveUserLocation(user.id, locationId);
-    const results = await searchMoviesForFollowFlowPhase6({
+    const results = await searchMoviesForFollowFlow({
       userId: user.id,
       locationId: location.locationId,
       query,

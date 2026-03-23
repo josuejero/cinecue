@@ -80,7 +80,7 @@ Controls:
 - keep retention windows explicit
 - review archive growth monthly
 
-## Phase 6 metrics to watch
+## Operational metrics to watch
 
 - dashboard views
 - searches
@@ -108,7 +108,7 @@ Do not widen launch scope if any of these are true:
 
 ### Weekly
 
-- check `/api/ops/phase6`
+- check `/api/ops`
 - inspect stale locations
 - inspect recent failures
 - inspect notification sent/failed/skipped counts

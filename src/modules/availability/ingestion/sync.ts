@@ -10,32 +10,26 @@ import {
   theatreExternalIds,
   theatres,
 } from "@/db/schema";
-import { chooseBestCandidate } from "@/lib/matching";
-import {
-  normalizePostalCode,
-  normalizeReleaseDate,
-  normalizeTitle,
-  parseReleaseYear,
-} from "@/lib/normalize";
+import { chooseBestCandidate } from "@/modules/catalog/matching";
+import { normalizeReleaseDate, normalizeTitle, parseReleaseYear } from "@/modules/catalog/normalize";
+import { normalizePostalCode } from "@/modules/locations/normalize";
 import {
   getAllShowingsByZip,
   getFutureReleases,
   getTheatresByZip,
   isGracenoteRequestNotAuthorizedError,
-} from "@/lib/providers/gracenote";
+} from "@/integrations/gracenote/client";
 import {
   findTmdbMovieByImdbId,
   getTmdbMovieDetails,
-  mapTmdbDetailsToMovieSeed,
   searchTmdbMovies,
-} from "@/lib/providers/tmdb";
-import type {
-  NormalizedMovieSeed,
-  NormalizedShowing,
-  NormalizedTheatre,
-  SourceProvider
-} from "@/lib/providers/types";
-import { refreshLocationReadModelByNormalizedKey } from "@/lib/phase2/read-model";
+} from "@/integrations/tmdb/client";
+import { mapTmdbDetailsToMovieSeed } from "@/integrations/tmdb/mapper";
+import type { NormalizedShowing } from "@/modules/availability/types";
+import type { NormalizedMovieSeed } from "@/modules/catalog/types";
+import type { NormalizedTheatre } from "@/modules/theatres/types";
+import type { SourceProvider } from "@/shared/types/source-provider";
+import { refreshLocationReadModelByNormalizedKey } from "@/modules/availability/read-model";
 import { and, eq, gte, inArray, like, lte } from "drizzle-orm";
 import crypto from "node:crypto";
 
@@ -1105,7 +1099,7 @@ export async function syncShowingsByZip(input: {
   }
 }
 
-export async function syncFutureReleasesPhaseOne(input: {
+export async function syncFutureReleasesCatalog(input: {
   releaseDate: string;
   numDays?: number;
   country?: "USA" | "CAN";
@@ -1165,7 +1159,7 @@ export async function syncFutureReleasesPhaseOne(input: {
   }
 }
 
-export async function syncZipPhaseOne(input: {
+export async function syncAvailabilityByZip(input: {
   zip: string;
   startDate: string;
   numDays?: number;
@@ -1201,7 +1195,7 @@ export async function syncZipPhaseOne(input: {
 
   let futureReleasesSummary;
   try {
-    futureReleasesSummary = await syncFutureReleasesPhaseOne({
+    futureReleasesSummary = await syncFutureReleasesCatalog({
       releaseDate: input.startDate,
       numDays: Math.min(input.numDays ?? 7, 60),
       country: input.country ?? "USA",

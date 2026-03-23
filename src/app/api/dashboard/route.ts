@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { jsonFromError } from "@/lib/phase2/errors";
-import { resolveUserLocation } from "@/lib/phase2/locations";
-import { getFollowedMovieIds, loadDashboard } from "@/lib/phase2/queries";
-import { refreshSelectedMovieLocalStatuses } from "@/lib/phase2/read-model";
-import { trackProductEvent } from "@/lib/phase6/analytics";
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { loadDashboard } from "@/modules/availability/queries";
+import { jsonFromError } from "@/shared/http/errors";
+import { getFollowedMovieIds } from "@/modules/follows/server";
+import { resolveUserLocation } from "@/modules/locations/server";
+import { refreshSelectedMovieLocalStatuses } from "@/modules/availability/read-model";
+import { trackProductEvent } from "@/modules/analytics/server";
 import {
   readDashboardCache,
   writeDashboardCache,
-} from "@/lib/phase6/dashboard-cache";
-import { markLocationUsed } from "@/lib/phase6/locations";
-import { assertRateLimit } from "@/lib/rate-limit";
+} from "@/modules/availability/dashboard-cache";
+import { markLocationUsed } from "@/modules/locations/server";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 export async function GET(request: Request) {
   try {

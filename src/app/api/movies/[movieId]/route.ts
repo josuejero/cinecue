@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { jsonFromError } from "@/lib/phase2/errors";
-import { resolveUserLocation } from "@/lib/phase2/locations";
-import { loadMovieDetail } from "@/lib/phase2/queries";
-import { refreshMovieLocalStatusForLocation } from "@/lib/phase2/read-model";
-import { listFavoriteTheatreIds, markLocationUsed } from "@/lib/phase6/locations";
-import { assertRateLimit } from "@/lib/rate-limit";
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { loadMovieDetail } from "@/modules/catalog/server";
+import { jsonFromError } from "@/shared/http/errors";
+import { resolveUserLocation } from "@/modules/locations/server";
+import { refreshMovieLocalStatusForLocation } from "@/modules/availability/read-model";
+import { listFavoriteTheatreIds, markLocationUsed } from "@/modules/locations/server";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 export async function GET(
   request: Request,

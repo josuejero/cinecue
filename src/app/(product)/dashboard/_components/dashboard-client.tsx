@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { InstallAppButton } from "../../_components/install-app-button";
-import { StatusBadge } from "@/shared/ui/status-badge";
+import { StatusBadge } from "@/modules/availability/ui/status-badge";
 import {
   ActionButton,
   ActionLink,

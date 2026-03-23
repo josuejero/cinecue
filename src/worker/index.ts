@@ -1,25 +1,25 @@
 import { Job, UnrecoverableError, Worker } from "bullmq";
-import { getServerEnv } from "@/lib/env";
-import { syncZipPhaseOne } from "@/lib/phase1/sync";
-import { processPendingEmailNotifications } from "@/lib/phase3/notifications";
-import { processPendingPushNotifications } from "@/lib/phase5/push";
-import { writeErrorLog, writeLog } from "@/lib/phase4/logging";
-import { runTrackedWorkerJob } from "@/lib/phase4/operations";
-import {
-  PHASE1_PROVIDER_SYNC_QUEUE,
-  PHASE4_NOTIFICATION_QUEUE,
-  PHASE4_SYNC_QUEUE,
-  upsertPhase4Schedulers,
-} from "@/lib/phase4/queues";
+import { getBullmqConnection } from "@/shared/infra/redis";
+import { getServerEnv } from "@/shared/infra/env";
+import { syncAvailabilityByZip } from "@/modules/availability/ingestion/sync";
 import {
   enqueueActiveLocationSyncs,
   replayLocationNow,
   replayMovieNow,
-  runPhase4Cleanup,
+  runRuntimeCleanup,
   syncFutureReleaseCatalog,
   syncLocationCluster,
-} from "@/lib/phase4/sync";
-import { getBullmqConnection } from "@/lib/redis";
+} from "@/modules/availability/jobs";
+import {
+  AVAILABILITY_INGESTION_QUEUE,
+  AVAILABILITY_SYNC_QUEUE,
+  NOTIFICATIONS_DELIVERY_QUEUE,
+  upsertWorkerSchedulers,
+} from "@/modules/availability/queues";
+import { processPendingEmailNotifications } from "@/modules/notifications/email";
+import { processPendingPushNotifications } from "@/modules/notifications/push";
+import { writeErrorLog, writeLog } from "@/modules/ops/logging";
+import { runTrackedWorkerJob } from "@/modules/ops/worker-runtime";
 
 const env = getServerEnv();
 const connection = getBullmqConnection();
@@ -49,20 +49,20 @@ function trackingForJob(
   };
 }
 
-const phase1Worker = new Worker(
-  PHASE1_PROVIDER_SYNC_QUEUE,
+const availabilityIngestionWorker = new Worker(
+  AVAILABILITY_INGESTION_QUEUE,
   async (job) => {
     switch (job.name) {
       case "sync-zip":
         return runTrackedWorkerJob(
           trackingForJob(
-            PHASE1_PROVIDER_SYNC_QUEUE,
+            AVAILABILITY_INGESTION_QUEUE,
             job,
             null,
-            typeof job.data?.zip === "string" ? `phase1-sync:${job.data.zip}` : null,
+            typeof job.data?.zip === "string" ? `availability-by-zip:${job.data.zip}` : null,
           ),
           async () =>
-            syncZipPhaseOne({
+            syncAvailabilityByZip({
               zip: requiredString(job.data?.zip, "zip"),
               startDate:
                 typeof job.data?.startDate === "string"
@@ -75,7 +75,7 @@ const phase1Worker = new Worker(
         );
 
       default:
-        throw new UnrecoverableError(`Unknown phase 1 job "${job.name}"`);
+        throw new UnrecoverableError(`Unknown availability ingestion job "${job.name}"`);
     }
   },
   {
@@ -84,16 +84,16 @@ const phase1Worker = new Worker(
   },
 );
 
-const phase4SyncWorker = new Worker(
-  PHASE4_SYNC_QUEUE,
+const availabilitySyncWorker = new Worker(
+  AVAILABILITY_SYNC_QUEUE,
   async (job) => {
     switch (job.name) {
       case "sync-active-locations":
         return runTrackedWorkerJob(
-          trackingForJob(PHASE4_SYNC_QUEUE, job),
+          trackingForJob(AVAILABILITY_SYNC_QUEUE, job),
           async () =>
             enqueueActiveLocationSyncs(
-              Number(job.data?.limit ?? env.PHASE4_ACTIVE_LOCATION_LIMIT),
+              Number(job.data?.limit ?? env.AVAILABILITY_ACTIVE_LOCATION_LIMIT),
             ),
         );
 
@@ -102,7 +102,7 @@ const phase4SyncWorker = new Worker(
 
         return runTrackedWorkerJob(
           trackingForJob(
-            PHASE4_SYNC_QUEUE,
+            AVAILABILITY_SYNC_QUEUE,
             job,
             locationId,
             `sync-location:${locationId}`,
@@ -110,45 +110,39 @@ const phase4SyncWorker = new Worker(
           async () =>
             syncLocationCluster({
               locationId,
-              reason:
-                typeof job.data?.reason === "string" ? job.data.reason : "worker",
-              startDate:
-                typeof job.data?.startDate === "string" ? job.data.startDate : null,
-              numDays:
-                typeof job.data?.numDays === "number" ? job.data.numDays : null,
+              reason: typeof job.data?.reason === "string" ? job.data.reason : "worker",
+              startDate: typeof job.data?.startDate === "string" ? job.data.startDate : null,
+              numDays: typeof job.data?.numDays === "number" ? job.data.numDays : null,
             }),
         );
       }
 
       case "sync-future-releases":
         return runTrackedWorkerJob(
-          trackingForJob(PHASE4_SYNC_QUEUE, job),
+          trackingForJob(AVAILABILITY_SYNC_QUEUE, job),
           async () =>
             syncFutureReleaseCatalog({
               releaseDate:
-                typeof job.data?.releaseDate === "string"
-                  ? job.data.releaseDate
-                  : undefined,
+                typeof job.data?.releaseDate === "string" ? job.data.releaseDate : undefined,
               numDays:
                 typeof job.data?.numDays === "number"
                   ? job.data.numDays
-                  : env.PHASE4_FUTURE_RELEASES_NUM_DAYS,
+                  : env.CATALOG_FUTURE_RELEASES_NUM_DAYS,
               country:
-                (job.data?.country as "USA" | "CAN" | undefined) ??
-                env.PHASE4_SYNC_COUNTRY,
+                (job.data?.country as "USA" | "CAN" | undefined) ?? env.AVAILABILITY_SYNC_COUNTRY,
             }),
         );
 
-      case "cleanup-phase4-data":
+      case "cleanup-runtime-data":
         return runTrackedWorkerJob(
-          trackingForJob(PHASE4_SYNC_QUEUE, job),
+          trackingForJob(AVAILABILITY_SYNC_QUEUE, job),
           async () =>
-            runPhase4Cleanup({
+            runRuntimeCleanup({
               showtimeRetentionDays: Number(
-                job.data?.showtimeRetentionDays ?? env.PHASE4_SHOWTIME_RETENTION_DAYS,
+                job.data?.showtimeRetentionDays ?? env.AVAILABILITY_SHOWTIME_RETENTION_DAYS,
               ),
               jobRunRetentionDays: Number(
-                job.data?.jobRunRetentionDays ?? env.PHASE4_JOB_RUN_RETENTION_DAYS,
+                job.data?.jobRunRetentionDays ?? env.WORKER_JOB_RUN_RETENTION_DAYS,
               ),
             }),
         );
@@ -158,7 +152,7 @@ const phase4SyncWorker = new Worker(
 
         return runTrackedWorkerJob(
           trackingForJob(
-            PHASE4_SYNC_QUEUE,
+            AVAILABILITY_SYNC_QUEUE,
             job,
             locationId,
             `replay-location:${locationId}`,
@@ -166,10 +160,8 @@ const phase4SyncWorker = new Worker(
           async () =>
             replayLocationNow({
               locationId,
-              startDate:
-                typeof job.data?.startDate === "string" ? job.data.startDate : null,
-              numDays:
-                typeof job.data?.numDays === "number" ? job.data.numDays : null,
+              startDate: typeof job.data?.startDate === "string" ? job.data.startDate : null,
+              numDays: typeof job.data?.numDays === "number" ? job.data.numDays : null,
             }),
         );
       }
@@ -180,7 +172,7 @@ const phase4SyncWorker = new Worker(
 
         return runTrackedWorkerJob(
           trackingForJob(
-            PHASE4_SYNC_QUEUE,
+            AVAILABILITY_SYNC_QUEUE,
             job,
             locationId,
             `replay-movie:${locationId}:${movieId}`,
@@ -194,23 +186,23 @@ const phase4SyncWorker = new Worker(
       }
 
       default:
-        throw new UnrecoverableError(`Unknown phase 4 sync job "${job.name}"`);
+        throw new UnrecoverableError(`Unknown availability sync job "${job.name}"`);
     }
   },
   {
     connection,
-    concurrency: env.PHASE4_LOCATION_SYNC_CONCURRENCY,
+    concurrency: env.WORKER_LOCATION_SYNC_CONCURRENCY,
   },
 );
 
-const phase4NotificationWorker = new Worker(
-  PHASE4_NOTIFICATION_QUEUE,
+const notificationsDeliveryWorker = new Worker(
+  NOTIFICATIONS_DELIVERY_QUEUE,
   async (job) => {
     switch (job.name) {
       case "send-email-notifications":
         return runTrackedWorkerJob(
           trackingForJob(
-            PHASE4_NOTIFICATION_QUEUE,
+            NOTIFICATIONS_DELIVERY_QUEUE,
             job,
             typeof job.data?.locationId === "string" ? job.data.locationId : null,
             `send-email-notifications:${job.data?.locationId ?? "all"}`,
@@ -219,7 +211,7 @@ const phase4NotificationWorker = new Worker(
             processPendingEmailNotifications({
               locationId:
                 typeof job.data?.locationId === "string" ? job.data.locationId : null,
-              limit: Number(job.data?.limit ?? env.PHASE4_NOTIFICATION_BATCH_SIZE),
+              limit: Number(job.data?.limit ?? env.NOTIFICATIONS_EMAIL_BATCH_SIZE),
               dryRun: Boolean(job.data?.dryRun),
             }),
         );
@@ -227,7 +219,7 @@ const phase4NotificationWorker = new Worker(
       case "send-push-notifications":
         return runTrackedWorkerJob(
           trackingForJob(
-            PHASE4_NOTIFICATION_QUEUE,
+            NOTIFICATIONS_DELIVERY_QUEUE,
             job,
             typeof job.data?.locationId === "string" ? job.data.locationId : null,
             `send-push-notifications:${job.data?.locationId ?? "all"}`,
@@ -236,15 +228,13 @@ const phase4NotificationWorker = new Worker(
             processPendingPushNotifications({
               locationId:
                 typeof job.data?.locationId === "string" ? job.data.locationId : null,
-              limit: Number(job.data?.limit ?? env.PHASE5_PUSH_BATCH_SIZE),
+              limit: Number(job.data?.limit ?? env.NOTIFICATIONS_PUSH_BATCH_SIZE),
               dryRun: Boolean(job.data?.dryRun),
             }),
         );
 
       default:
-        throw new UnrecoverableError(
-          `Unknown phase 4 notification job "${job.name}"`,
-        );
+        throw new UnrecoverableError(`Unknown notifications delivery job "${job.name}"`);
     }
   },
   {
@@ -274,26 +264,26 @@ function wireWorker(name: string, worker: Worker) {
   });
 }
 
-wireWorker("phase1", phase1Worker);
-wireWorker("phase4-sync", phase4SyncWorker);
-wireWorker("phase4-notifications", phase4NotificationWorker);
+wireWorker("availability-ingestion", availabilityIngestionWorker);
+wireWorker("availability-sync", availabilitySyncWorker);
+wireWorker("notifications-delivery", notificationsDeliveryWorker);
 
 async function main() {
-  const schedulerSummary = await upsertPhase4Schedulers();
+  const schedulerSummary = await upsertWorkerSchedulers();
 
   writeLog("info", "worker.boot", {
-    phase1Queue: PHASE1_PROVIDER_SYNC_QUEUE,
-    phase4SyncQueue: PHASE4_SYNC_QUEUE,
-    phase4NotificationQueue: PHASE4_NOTIFICATION_QUEUE,
+    availabilityIngestionQueue: AVAILABILITY_INGESTION_QUEUE,
+    availabilitySyncQueue: AVAILABILITY_SYNC_QUEUE,
+    notificationsDeliveryQueue: NOTIFICATIONS_DELIVERY_QUEUE,
     schedulerSummary,
   });
 }
 
 async function shutdown() {
   await Promise.all([
-    phase1Worker.close(),
-    phase4SyncWorker.close(),
-    phase4NotificationWorker.close(),
+    availabilityIngestionWorker.close(),
+    availabilitySyncWorker.close(),
+    notificationsDeliveryWorker.close(),
   ]);
   process.exit(0);
 }

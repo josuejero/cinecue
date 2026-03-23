@@ -32,9 +32,9 @@ Response:
 Recovery:
 
 - restore provider access
-- run `phase4:sync-active`
+- run `npm run availability:sync-active -- --limit 100`
 - replay hot locations if needed
-- verify `/api/ops/phase6`
+- verify `/api/ops`
 
 ### 2. Gracenote partially unavailable
 
@@ -100,25 +100,25 @@ Recovery:
 ### Replay one location
 
 ```bash
-npm run phase4:replay-location -- --location-id LOCATION_ID --start-date 2026-03-22 --num-days 7
+npm run availability:replay-location -- --location-id LOCATION_ID --start-date 2026-03-22 --num-days 7
 ```
 
 ### Replay one movie in one location
 
 ```bash
-npm run phase4:replay-movie -- --location-id LOCATION_ID --movie-id MOVIE_ID
+npm run availability:replay-movie -- --location-id LOCATION_ID --movie-id MOVIE_ID
 ```
 
 ### Re-enqueue active locations
 
 ```bash
-npm run phase4:sync-active -- --limit 100
+npm run availability:sync-active -- --limit 100
 ```
 
 ### Check aggregate ops
 
 ```bash
-npm run phase6:ops-report
+npm run ops:report
 ```
 
 ## Operational expectations

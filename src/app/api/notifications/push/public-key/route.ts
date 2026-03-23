@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { jsonFromError } from "@/lib/phase2/errors";
-import { getPushPublicKey, isPushConfigured } from "@/lib/phase5/push";
-import { assertRateLimit } from "@/lib/rate-limit";
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { jsonFromError } from "@/shared/http/errors";
+import { getPushPublicKey, isPushConfigured } from "@/modules/notifications/push";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 export const runtime = "nodejs";
 

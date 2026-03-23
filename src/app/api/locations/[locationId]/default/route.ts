@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { jsonFromError } from "@/lib/phase2/errors";
-import { trackProductEvent } from "@/lib/phase6/analytics";
-import { invalidateDashboardCacheForUser } from "@/lib/phase6/dashboard-cache";
-import { listUserSavedLocations, setDefaultSavedLocation } from "@/lib/phase6/locations";
-import { assertRateLimit } from "@/lib/rate-limit";
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { jsonFromError } from "@/shared/http/errors";
+import { trackProductEvent } from "@/modules/analytics/server";
+import { invalidateDashboardCacheForUser } from "@/modules/availability/dashboard-cache";
+import { listUserSavedLocations, setDefaultSavedLocation } from "@/modules/locations/server";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 export async function PATCH(
   request: Request,

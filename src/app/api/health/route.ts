@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
-import { getPhase6OperationalSnapshot } from "@/lib/phase6/ops";
+import { getOperationalSnapshot } from "@/modules/ops/server";
 
 export async function GET() {
+  const timestamp = new Date().toISOString();
+
   try {
-    const operations = await getPhase6OperationalSnapshot();
+    const operations = await getOperationalSnapshot();
 
     return NextResponse.json({
       ok: true,
       service: "cinecue-web",
-      phase: 6,
-      timestamp: new Date().toISOString(),
+      timestamp,
+      checks: {
+        operations: true,
+      },
       operations,
     });
   } catch (error) {
@@ -17,8 +21,11 @@ export async function GET() {
       {
         ok: false,
         service: "cinecue-web",
-        phase: 6,
-        timestamp: new Date().toISOString(),
+        timestamp,
+        checks: {
+          operations: false,
+        },
+        operations: null,
         error: error instanceof Error ? error.message : "Unknown health error.",
       },
       { status: 503 },

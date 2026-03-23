@@ -1,35 +1,5 @@
-import { getServerEnv } from "@/lib/env";
-import { normalizeTitle, normalizeReleaseDate, parseReleaseYear, tmdbPosterUrl } from "@/lib/normalize";
-import type { NormalizedMovieSeed } from "@/lib/providers/types";
-
-type TmdbSearchMovieResult = {
-  id: number;
-  title: string;
-  release_date?: string | null;
-  overview?: string | null;
-  poster_path?: string | null;
-};
-
-type TmdbSearchResponse = {
-  results?: TmdbSearchMovieResult[];
-};
-
-type TmdbFindResponse = {
-  movie_results?: TmdbSearchMovieResult[];
-};
-
-type TmdbMovieDetails = {
-  id: number;
-  title: string;
-  original_title?: string;
-  release_date?: string | null;
-  overview?: string | null;
-  runtime?: number | null;
-  poster_path?: string | null;
-  external_ids?: {
-    imdb_id?: string | null;
-  };
-};
+import { getServerEnv } from "@/shared/infra/env";
+import type { TmdbFindResponse, TmdbMovieDetails, TmdbSearchResponse } from "@/integrations/tmdb/types";
 
 function getClientConfig() {
   const env = getServerEnv();
@@ -106,24 +76,3 @@ export async function getTmdbMovieDetails(movieId: number) {
   });
 }
 
-export function mapTmdbDetailsToMovieSeed(details: TmdbMovieDetails): NormalizedMovieSeed {
-  const title = details.title?.trim() || details.original_title?.trim() || `TMDB ${details.id}`;
-  const normalizedReleaseDate = normalizeReleaseDate(details.release_date ?? undefined);
-
-  return {
-    provider: "tmdb",
-    tmdbId: String(details.id),
-    imdbId: details.external_ids?.imdb_id ?? null,
-    title,
-    normalizedTitle: normalizeTitle(title),
-    releaseYear: parseReleaseYear(normalizedReleaseDate ?? undefined),
-    releaseDate: normalizedReleaseDate,
-    entityType: "Movie",
-    subType: "Feature Film",
-    shortDescription: details.overview ?? null,
-    longDescription: details.overview ?? null,
-    runtimeMinutes: details.runtime ?? null,
-    posterUrl: tmdbPosterUrl(details.poster_path),
-    raw: details,
-  };
-}

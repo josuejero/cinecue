@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { checkDb } from "@/db/client";
-import { getServerEnv } from "@/lib/env";
-import { isEmailTransportConfigured } from "@/lib/phase3/notifications";
-import { isPushConfigured } from "@/lib/phase5/push";
-import { getPhase6OperationalSnapshot } from "@/lib/phase6/ops";
-import { getRedis } from "@/lib/redis";
+import { getServerEnv } from "@/shared/infra/env";
+import { isEmailTransportConfigured } from "@/modules/notifications/email";
+import { isPushConfigured } from "@/modules/notifications/push";
+import { getOperationalSnapshot } from "@/modules/ops/server";
+import { getRedis } from "@/shared/infra/redis";
 
 function hasConfiguredValue(value: string | undefined | null) {
   const trimmed = value?.trim();
@@ -23,12 +23,12 @@ export async function GET() {
       hasConfiguredValue(env.TMDB_READ_ACCESS_TOKEN) || hasConfiguredValue(env.TMDB_API_KEY),
     smtpConfigured: isEmailTransportConfigured(),
     pushConfigured: isPushConfigured(),
-    schedulersEnabled: env.PHASE4_ENABLE_SCHEDULERS !== "false",
+    schedulersEnabled: env.WORKER_ENABLE_SCHEDULERS !== "false",
     staleLocationsUnderThreshold: true,
     staleLocationCount: 0,
   };
 
-  let operations: Awaited<ReturnType<typeof getPhase6OperationalSnapshot>> | null = null;
+  let operations: Awaited<ReturnType<typeof getOperationalSnapshot>> | null = null;
 
   try {
     await checkDb();
@@ -45,11 +45,11 @@ export async function GET() {
   }
 
   try {
-    operations = await getPhase6OperationalSnapshot();
+    operations = await getOperationalSnapshot();
     checks.staleLocationCount = operations.performance.staleLocationCount;
     checks.staleLocationsUnderThreshold = operations.performance.staleLocationCount === 0;
   } catch (error) {
-    console.error("Phase 6 ops readiness check failed:", error);
+    console.error("Operational snapshot readiness check failed:", error);
     checks.staleLocationsUnderThreshold = false;
   }
 
@@ -62,7 +62,7 @@ export async function GET() {
   return NextResponse.json(
     {
       ok,
-      phase: 6,
+      service: "cinecue-web",
       checks,
       operations,
       timestamp: new Date().toISOString(),

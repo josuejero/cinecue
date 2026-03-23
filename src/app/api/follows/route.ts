@@ -1,20 +1,13 @@
-import crypto from "node:crypto";
-import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { getDb } from "@/db/client";
-import { movies, userMovieFollows } from "@/db/schema";
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { BadRequestError, jsonFromError, NotFoundError } from "@/lib/phase2/errors";
-import { resolveUserLocation } from "@/lib/phase2/locations";
-import { loadMovieDetail } from "@/lib/phase2/queries";
-import { refreshMovieLocalStatusForLocation } from "@/lib/phase2/read-model";
-import { trackProductEvent } from "@/lib/phase6/analytics";
-import { invalidateDashboardCacheForUser } from "@/lib/phase6/dashboard-cache";
-import { assertRateLimit } from "@/lib/rate-limit";
-
-function createId() {
-  return crypto.randomUUID();
-}
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { loadMovieDetail } from "@/modules/catalog/server";
+import { BadRequestError, jsonFromError } from "@/shared/http/errors";
+import { createFollow } from "@/modules/follows/server";
+import { resolveUserLocation } from "@/modules/locations/server";
+import { refreshMovieLocalStatusForLocation } from "@/modules/availability/read-model";
+import { trackProductEvent } from "@/modules/analytics/server";
+import { invalidateDashboardCacheForUser } from "@/modules/availability/dashboard-cache";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -27,7 +20,6 @@ export async function POST(request: Request) {
       throw new BadRequestError("movieId is required.");
     }
 
-    const db = getDb();
     const user = await getOrCreateAppUser();
 
     await assertRateLimit({
@@ -40,36 +32,11 @@ export async function POST(request: Request) {
 
     const location = await resolveUserLocation(user.id, body.locationId ?? null);
 
-    const [movie] = await db
-      .select({ id: movies.id })
-      .from(movies)
-      .where(eq(movies.id, body.movieId))
-      .limit(1);
-
-    if (!movie) {
-      throw new NotFoundError("Movie not found.");
-    }
-
-    await db
-      .insert(userMovieFollows)
-      .values({
-        id: createId(),
-        userId: user.id,
-        movieId: body.movieId,
-        locationId: location.locationId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: [
-          userMovieFollows.userId,
-          userMovieFollows.movieId,
-          userMovieFollows.locationId,
-        ],
-        set: {
-          updatedAt: new Date(),
-        },
-      });
+    await createFollow({
+      userId: user.id,
+      movieId: body.movieId,
+      locationId: location.locationId,
+    });
 
     await refreshMovieLocalStatusForLocation(location.locationId, body.movieId);
     const detail = await loadMovieDetail({

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarExportButton } from "./calendar-export-button";
 import { FavoriteTheatreButton } from "./favorite-theatre-button";
-import { StatusBadge } from "@/shared/ui/status-badge";
+import { StatusBadge } from "@/modules/availability/ui/status-badge";
 import {
   ActionAnchor,
   ActionButton,

@@ -1,12 +1,12 @@
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { NotFoundError, jsonFromError } from "@/lib/phase2/errors";
-import { resolveUserLocation } from "@/lib/phase2/locations";
-import { trackProductEvent } from "@/lib/phase6/analytics";
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { NotFoundError, jsonFromError } from "@/shared/http/errors";
+import { resolveUserLocation } from "@/modules/locations/server";
+import { trackProductEvent } from "@/modules/analytics/server";
 import {
   buildCalendarFile,
   listUpcomingShowingsForMovieAndLocation,
-} from "@/lib/phase6/calendar";
-import { assertRateLimit } from "@/lib/rate-limit";
+} from "@/modules/calendar/server";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 export async function GET(
   request: Request,

@@ -18,6 +18,15 @@ export function getRedis() {
   return global.__cinecueRedis;
 }
 
+export async function closeRedis() {
+  if (!global.__cinecueRedis) {
+    return;
+  }
+
+  await global.__cinecueRedis.quit();
+  global.__cinecueRedis = undefined;
+}
+
 export function getBullmqConnection() {
   const env = getServerEnv();
 

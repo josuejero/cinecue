@@ -1,4 +1,4 @@
-import type { MovieAvailabilityStatus } from "@/lib/phase2/read-model";
+import type { MovieAvailabilityStatus } from "@/modules/availability/read-model";
 
 const STATUS_LABELS: Record<MovieAvailabilityStatus, string> = {
   now_playing: "Now playing",

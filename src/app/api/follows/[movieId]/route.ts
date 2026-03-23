@@ -1,13 +1,11 @@
-import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { getDb } from "@/db/client";
-import { userMovieFollows } from "@/db/schema";
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { jsonFromError } from "@/lib/phase2/errors";
-import { resolveUserLocation } from "@/lib/phase2/locations";
-import { trackProductEvent } from "@/lib/phase6/analytics";
-import { invalidateDashboardCacheForUser } from "@/lib/phase6/dashboard-cache";
-import { assertRateLimit } from "@/lib/rate-limit";
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { removeFollow } from "@/modules/follows/server";
+import { jsonFromError } from "@/shared/http/errors";
+import { resolveUserLocation } from "@/modules/locations/server";
+import { trackProductEvent } from "@/modules/analytics/server";
+import { invalidateDashboardCacheForUser } from "@/modules/availability/dashboard-cache";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 export async function DELETE(
   request: Request,
@@ -27,17 +25,11 @@ export async function DELETE(
     });
 
     const location = await resolveUserLocation(user.id, locationId);
-    const db = getDb();
-
-    await db
-      .delete(userMovieFollows)
-      .where(
-        and(
-          eq(userMovieFollows.userId, user.id),
-          eq(userMovieFollows.locationId, location.locationId),
-          eq(userMovieFollows.movieId, movieId),
-        ),
-      );
+    await removeFollow({
+      userId: user.id,
+      locationId: location.locationId,
+      movieId,
+    });
 
     await invalidateDashboardCacheForUser(user.id);
     await trackProductEvent({

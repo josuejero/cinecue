@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PageShell } from "@/shared/ui/app-shell";
+import { PageShell } from "@/app/_components/app-shell";
 import { ActionLink, ArrowLeftIcon, Eyebrow, Notice, Panel } from "@/shared/ui/ui";
 
 export const metadata: Metadata = {

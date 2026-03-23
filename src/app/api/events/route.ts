@@ -1,13 +1,13 @@
-import { getServerEnv } from "@/lib/env";
-import { getOrCreateAppUser } from "@/lib/phase2/auth";
-import { jsonFromError } from "@/lib/phase2/errors";
-import { resolveUserLocation } from "@/lib/phase2/locations";
+import { getServerEnv } from "@/shared/infra/env";
+import { getOrCreateAppUser } from "@/modules/auth/server";
+import { jsonFromError } from "@/shared/http/errors";
+import { resolveUserLocation } from "@/modules/locations/server";
 import {
   formatSseComment,
   formatSseEvent,
   getLatestAvailabilityCursor,
-} from "@/lib/phase5/sse";
-import { assertRateLimit } from "@/lib/rate-limit";
+} from "@/modules/availability/sse";
+import { assertRateLimit } from "@/shared/infra/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -114,11 +114,11 @@ export async function GET(request: Request) {
 
         pollHandle = setInterval(() => {
           void poll();
-        }, env.PHASE5_SSE_POLL_MS);
+        }, env.AVAILABILITY_EVENTS_POLL_MS);
 
         heartbeatHandle = setInterval(() => {
           enqueue(formatSseComment(`heartbeat ${Date.now()}`));
-        }, env.PHASE5_SSE_HEARTBEAT_MS);
+        }, env.AVAILABILITY_EVENTS_HEARTBEAT_MS);
 
         const abortHandler = () => {
           cleanup(controller);

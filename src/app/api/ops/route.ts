@@ -1,15 +1,27 @@
 import { NextResponse } from "next/server";
-import { getPhase4OperationalSnapshot } from "@/lib/phase4/operations";
+import { getOperationalSnapshot } from "@/modules/ops/server";
 
 export async function GET() {
+  const timestamp = new Date().toISOString();
+
   try {
-    const snapshot = await getPhase4OperationalSnapshot();
-    return NextResponse.json(snapshot);
+    const operations = await getOperationalSnapshot();
+
+    return NextResponse.json({
+      ok: true,
+      service: "cinecue-web",
+      timestamp,
+      checks: {},
+      operations,
+    });
   } catch (error) {
     return NextResponse.json(
       {
         ok: false,
-        phase: 4,
+        service: "cinecue-web",
+        timestamp,
+        checks: {},
+        operations: null,
         error: error instanceof Error ? error.message : "Unknown ops error.",
       },
       { status: 500 },
