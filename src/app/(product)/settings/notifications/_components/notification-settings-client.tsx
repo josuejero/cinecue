@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { InstallAppButton } from "../../_components/install-app-button";
+import { InstallAppButton } from "../../../_components/install-app-button";
 import {
   ActionButton,
   BellIcon,
